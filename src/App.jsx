@@ -6,8 +6,11 @@ import Plantings from './pages/Plantings'
 import PlantLibrary from './pages/PlantLibrary'
 import Rotation from './pages/Rotation'
 import Tasks from './pages/Tasks'
+import Admin from './pages/Admin'
 import { Beds, Seasons } from './pages/BedsSeasons'
 import './index.css'
+
+const ADMIN_EMAIL = 'rexeven@gmail.com'
 
 const NAV = [
   { id: 'dashboard',  label: 'Dashboard',     icon: '🏡', section: null },
@@ -17,6 +20,7 @@ const NAV = [
   { id: 'library',    label: 'Plant Library',   icon: '📚', section: 'Setup' },
   { id: 'beds',       label: 'Beds & Areas',    icon: '🪴', section: null },
   { id: 'seasons',    label: 'Seasons',         icon: '📅', section: null },
+  { id: 'admin',      label: 'Admin',           icon: '🔧', section: null, adminOnly: true },
 ]
 
 export default function App() {
@@ -27,13 +31,19 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
+      if (data.session?.user) upsertProfile(data.session.user)
       setLoading(false)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
+      if (session?.user) upsertProfile(session.user)
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  async function upsertProfile(u) {
+    await supabase.from('user_profiles').upsert({ id: u.id, email: u.email }, { onConflict: 'id' })
+  }
 
   if (loading) {
     return (
@@ -59,6 +69,7 @@ export default function App() {
       case 'library':   return <PlantLibrary user={user} />
       case 'beds':      return <Beds user={user} />
       case 'seasons':   return <Seasons user={user} />
+      case 'admin':     return <Admin user={user} />
       default:          return <Dashboard user={user} />
     }
   }
@@ -85,7 +96,7 @@ export default function App() {
       </header>
 
       <nav className="app-sidebar">
-        {NAV.map(item => {
+        {NAV.filter(item => !item.adminOnly || user.email === ADMIN_EMAIL).map(item => {
           const showSection = item.section && item.section !== lastSection
           if (item.section) lastSection = item.section
           return (

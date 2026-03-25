@@ -16,6 +16,7 @@ export default function Plantings({ user }) {
   const [showTaskModal, setShowTaskModal] = useState(null) // planting id
   const [editing, setEditing] = useState(null)
   const [autoTaskMsg, setAutoTaskMsg] = useState(null)
+  const [generatingSchedule, setGeneratingSchedule] = useState(null) // planting id
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterBed, setFilterBed] = useState('all')
 
@@ -36,7 +37,7 @@ export default function Plantings({ user }) {
     const [pRes, bRes, plRes, sRes, fRes] = await Promise.all([
       supabase.from('plantings').select('*, beds(name), seasons(year), plants(name, variety, family_id), plant_families!custom_family_id(name, color)').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('beds').select('*').eq('user_id', user.id).order('name'),
-      supabase.from('plants').select('id, name, variety, family_id, days_to_harvest, sow_indoors_timing, plant_families(name, color)').eq('user_id', user.id).order('name'),
+      supabase.from('plants').select('id, name, variety, family_id, days_to_harvest, sow_indoors_timing, water_frequency_days, fertilize_frequency_weeks, plant_families(name, color)').eq('user_id', user.id).order('name'),
       supabase.from('seasons').select('*').eq('user_id', user.id).order('year', { ascending: false }),
       supabase.from('plant_families').select('*').order('name'),
     ])
@@ -201,6 +202,55 @@ export default function Plantings({ user }) {
     return tasks.length
   }
 
+  async function generateSchedule(planting) {
+    const plant = plants.find(p => p.id === planting.plant_id)
+    if (!plant?.water_frequency_days && !plant?.fertilize_frequency_weeks) {
+      alert(`No care schedule data for this plant yet. Edit the plant in your Plant Library to add watering and fertilizing frequencies.`)
+      return
+    }
+    const season = seasons.find(s => s.id === planting.season_id)
+    const endDate = season?.fall_frost_start || null
+    const startDate = format(new Date(), 'yyyy-MM-dd')
+    const plantName = plant.name + (plant.variety ? ` (${plant.variety})` : '')
+    const tasks = []
+
+    if (plant.water_frequency_days) {
+      tasks.push({
+        user_id: user.id,
+        planting_id: planting.id,
+        title: `💧 Water ${plantName}`,
+        task_type: 'water',
+        due_date: startDate,
+        recur_type: 'custom',
+        recur_interval_days: plant.water_frequency_days,
+        recur_end_date: endDate,
+        notes: `Every ${plant.water_frequency_days} days`,
+      })
+    }
+
+    if (plant.fertilize_frequency_weeks) {
+      const fertDate = format(addDays(new Date(), 7), 'yyyy-MM-dd') // start fertilizing a week in
+      tasks.push({
+        user_id: user.id,
+        planting_id: planting.id,
+        title: `🌿 Fertilize ${plantName}`,
+        task_type: 'fertilize',
+        due_date: fertDate,
+        recur_type: 'custom',
+        recur_interval_days: plant.fertilize_frequency_weeks * 7,
+        recur_end_date: endDate,
+        notes: `Every ${plant.fertilize_frequency_weeks} week${plant.fertilize_frequency_weeks !== 1 ? 's' : ''}`,
+      })
+    }
+
+    setGeneratingSchedule(planting.id)
+    const { error } = await supabase.from('tasks').insert(tasks)
+    setGeneratingSchedule(null)
+
+    if (error) { alert('Error generating schedule: ' + error.message); return }
+    setAutoTaskMsg(`🗓 Schedule created for ${plantName} — ${tasks.length} recurring task${tasks.length !== 1 ? 's' : ''} added. Check off each one when done and the next will appear automatically.`)
+  }
+
   async function saveTask() {
     await supabase.from('tasks').insert({
       ...taskForm,
@@ -320,6 +370,16 @@ export default function Plantings({ user }) {
                     <td>
                       <div className="flex gap-1">
                         <button className="btn btn-ghost btn-sm" onClick={() => setShowTaskModal(p.id)} title="Add task">📋</button>
+                        {p.plant_id && (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => generateSchedule(p)}
+                            disabled={generatingSchedule === p.id}
+                            title="Generate watering & fertilizing schedule"
+                          >
+                            {generatingSchedule === p.id ? '…' : '🗓'}
+                          </button>
+                        )}
                         <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}>Edit</button>
                         <button className="btn btn-danger btn-sm" onClick={() => deletePlanting(p.id)}>✕</button>
                       </div>

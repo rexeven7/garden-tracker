@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase, SEED_PLANTS } from '../lib/supabase'
+import { supabase, SEED_PLANTS, FAMILY_CARE_DEFAULTS, PLANT_CARE_OVERRIDES } from '../lib/supabase'
 
 const CATEGORIES = ['vegetable', 'herb', 'flower', 'fruit']
 
@@ -18,7 +18,8 @@ export default function PlantLibrary({ user }) {
   const emptyForm = {
     name: '', variety: '', family_id: '', category: 'vegetable',
     sow_indoors_timing: '', direct_sow_timing: '', days_to_harvest: '',
-    in_ground_start: '', in_ground_end: '', seed_quantity: '', notes: '', info: ''
+    in_ground_start: '', in_ground_end: '', seed_quantity: '', notes: '', info: '',
+    water_frequency_days: '', fertilize_frequency_weeks: '',
   }
   const [form, setForm] = useState(emptyForm)
 
@@ -40,20 +41,26 @@ export default function PlantLibrary({ user }) {
     const familyMap = {}
     families.forEach(f => { familyMap[f.name] = f.id })
 
-    const rows = SEED_PLANTS.map(p => ({
-      user_id: user.id,
-      name: p.name,
-      variety: p.variety || null,
-      family_id: familyMap[p.family] || null,
-      category: p.category,
-      sow_indoors_timing: p.sow_indoors_timing || null,
-      direct_sow_timing: p.direct_sow_timing || null,
-      days_to_harvest: p.days_to_harvest || null,
-      in_ground_start: p.in_ground_start || null,
-      in_ground_end: p.in_ground_end || null,
-      seed_quantity: p.seed_quantity || null,
-      notes: p.notes || null,
-    }))
+    const rows = SEED_PLANTS.map(p => {
+      const familyCare = FAMILY_CARE_DEFAULTS[p.family] || {}
+      const overrides = PLANT_CARE_OVERRIDES[p.name] || {}
+      return {
+        user_id: user.id,
+        name: p.name,
+        variety: p.variety || null,
+        family_id: familyMap[p.family] || null,
+        category: p.category,
+        sow_indoors_timing: p.sow_indoors_timing || null,
+        direct_sow_timing: p.direct_sow_timing || null,
+        days_to_harvest: p.days_to_harvest || null,
+        in_ground_start: p.in_ground_start || null,
+        in_ground_end: p.in_ground_end || null,
+        seed_quantity: p.seed_quantity || null,
+        notes: p.notes || null,
+        water_frequency_days: overrides.water_frequency_days ?? familyCare.water_frequency_days ?? null,
+        fertilize_frequency_weeks: overrides.fertilize_frequency_weeks ?? familyCare.fertilize_frequency_weeks ?? null,
+      }
+    })
 
     await supabase.from('plants').insert(rows)
     setSeeding(false)
@@ -148,13 +155,20 @@ export default function PlantLibrary({ user }) {
       sow_indoors_timing: p.sow_indoors_timing || '', direct_sow_timing: p.direct_sow_timing || '',
       days_to_harvest: p.days_to_harvest || '', in_ground_start: p.in_ground_start || '',
       in_ground_end: p.in_ground_end || '', seed_quantity: p.seed_quantity || '',
-      notes: p.notes || '', info: p.info || ''
+      notes: p.notes || '', info: p.info || '',
+      water_frequency_days: p.water_frequency_days || '', fertilize_frequency_weeks: p.fertilize_frequency_weeks || '',
     })
     setShowModal(true)
   }
 
   async function save() {
-    const payload = { ...form, user_id: user.id, family_id: form.family_id || null }
+    const payload = {
+      ...form,
+      user_id: user.id,
+      family_id: form.family_id || null,
+      water_frequency_days: form.water_frequency_days ? parseInt(form.water_frequency_days) : null,
+      fertilize_frequency_weeks: form.fertilize_frequency_weeks ? parseInt(form.fertilize_frequency_weeks) : null,
+    }
     if (editing) await supabase.from('plants').update(payload).eq('id', editing)
     else await supabase.from('plants').insert(payload)
     setShowModal(false)
@@ -336,6 +350,17 @@ export default function PlantLibrary({ user }) {
               <div className="form-group">
                 <label>Seed Quantity</label>
                 <input value={form.seed_quantity} onChange={e => setForm({ ...form, seed_quantity: e.target.value })} placeholder="e.g. 25 seeds" />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>💧 Water every (days)</label>
+                <input type="number" min="1" value={form.water_frequency_days} onChange={e => setForm({ ...form, water_frequency_days: e.target.value })} placeholder="e.g. 3" />
+              </div>
+              <div className="form-group">
+                <label>🌿 Fertilize every (weeks)</label>
+                <input type="number" min="1" value={form.fertilize_frequency_weeks} onChange={e => setForm({ ...form, fertilize_frequency_weeks: e.target.value })} placeholder="e.g. 2" />
               </div>
             </div>
 

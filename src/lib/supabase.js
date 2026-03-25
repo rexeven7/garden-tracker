@@ -5,6 +5,39 @@ const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+// ── Default care frequencies by plant family ──────────────────
+// water_frequency_days: how often to water (days)
+// fertilize_frequency_weeks: how often to fertilize (weeks)
+export const FAMILY_CARE_DEFAULTS = {
+  'Nightshades (Solanaceae)':   { water_frequency_days: 3, fertilize_frequency_weeks: 2 },
+  'Brassicas (Cruciferae)':     { water_frequency_days: 4, fertilize_frequency_weeks: 3 },
+  'Legumes (Fabaceae)':         { water_frequency_days: 4, fertilize_frequency_weeks: 4 },
+  'Cucurbits (Cucurbitaceae)':  { water_frequency_days: 3, fertilize_frequency_weeks: 2 },
+  'Alliums (Amaryllidaceae)':   { water_frequency_days: 5, fertilize_frequency_weeks: 3 },
+  'Umbellifers (Apiaceae)':     { water_frequency_days: 3, fertilize_frequency_weeks: 4 },
+  'Asteraceae':                 { water_frequency_days: 2, fertilize_frequency_weeks: 3 },
+  'Corn (Poaceae)':             { water_frequency_days: 4, fertilize_frequency_weeks: 2 },
+  'Other / Flower':             { water_frequency_days: 3, fertilize_frequency_weeks: 3 },
+}
+
+// Per-plant overrides where the family default doesn't apply well
+const PLANT_CARE_OVERRIDES = {
+  'Potato':       { water_frequency_days: 4, fertilize_frequency_weeks: 3 },
+  'Garlic':       { water_frequency_days: 7, fertilize_frequency_weeks: 4 }, // cure-style, mostly dry
+  'Watermelon':   { water_frequency_days: 4, fertilize_frequency_weeks: 2 },
+  'Pumpkin':      { water_frequency_days: 4, fertilize_frequency_weeks: 2 },
+  'Carrot':       { water_frequency_days: 3, fertilize_frequency_weeks: 4 }, // N causes forking
+  'Parsnip':      { water_frequency_days: 3, fertilize_frequency_weeks: 4 },
+  'Basil':        { water_frequency_days: 2, fertilize_frequency_weeks: 4 }, // don't over-fertilize herbs
+  'Mint':         { water_frequency_days: 2, fertilize_frequency_weeks: 4 },
+  'Dill':         { water_frequency_days: 3, fertilize_frequency_weeks: 4 },
+  'Parsley':      { water_frequency_days: 3, fertilize_frequency_weeks: 4 },
+  'Cilantro':     { water_frequency_days: 3, fertilize_frequency_weeks: 4 },
+  'Sweet Potato': { water_frequency_days: 5, fertilize_frequency_weeks: 4 }, // drought tolerant
+  'Beet':         { water_frequency_days: 3, fertilize_frequency_weeks: 4 },
+  'Sunflower':    { water_frequency_days: 4, fertilize_frequency_weeks: 3 },
+}
+
 // ── Plant seed data from her spreadsheet ──────────────────────
 export const SEED_PLANTS = [
   // Nightshades
