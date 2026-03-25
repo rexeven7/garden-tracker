@@ -27,10 +27,19 @@ const NAV = [
   { id: 'admin',      label: 'Admin',           icon: '🔧', section: null, adminOnly: true },
 ]
 
+// Bottom 4 tabs always visible on mobile
+const BOTTOM_NAV = [
+  { id: 'dashboard', label: 'Home',      icon: '🏡' },
+  { id: 'plantings', label: 'Plants',    icon: '🌱' },
+  { id: 'tasks',     label: 'Tasks',     icon: '✅' },
+  { id: 'issues',    label: 'Issues',    icon: '🐛' },
+]
+
 export default function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState('dashboard')
+  const [showMore, setShowMore] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -122,6 +131,60 @@ export default function App() {
       <main className="main-content">
         {renderPage()}
       </main>
+
+      {/* Mobile bottom tab bar */}
+      <nav className="bottom-nav">
+        {BOTTOM_NAV.map(item => (
+          <button
+            key={item.id}
+            className={`bottom-nav-item ${page === item.id ? 'active' : ''}`}
+            onClick={() => { setPage(item.id); setShowMore(false) }}
+          >
+            <span className="bottom-nav-icon">{item.icon}</span>
+            <span className="bottom-nav-label">{item.label}</span>
+          </button>
+        ))}
+        <button
+          className={`bottom-nav-item ${showMore ? 'active' : ''}`}
+          onClick={() => setShowMore(m => !m)}
+        >
+          <span className="bottom-nav-icon">☰</span>
+          <span className="bottom-nav-label">More</span>
+        </button>
+      </nav>
+
+      {/* More overlay */}
+      {showMore && (
+        <div className="more-overlay" onClick={() => setShowMore(false)}>
+          <div className="more-sheet" onClick={e => e.stopPropagation()}>
+            <div className="more-sheet-handle" />
+            {NAV
+              .filter(item => !BOTTOM_NAV.find(b => b.id === item.id))
+              .filter(item => !item.adminOnly || user.email === ADMIN_EMAIL)
+              .map(item => (
+                <button
+                  key={item.id}
+                  className={`more-sheet-item ${page === item.id ? 'active' : ''}`}
+                  onClick={() => { setPage(item.id); setShowMore(false) }}
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              ))
+            }
+            <div className="more-sheet-divider" />
+            <button
+              className="more-sheet-item"
+              style={{ color: 'var(--muted)' }}
+              onClick={() => supabase.auth.signOut()}
+            >
+              <span>🚪</span>
+              <span>Sign out</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       <SpeedInsights />
       <Analytics />
     </div>
