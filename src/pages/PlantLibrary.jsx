@@ -62,10 +62,18 @@ export default function PlantLibrary({ user }) {
 
   function downloadTemplate() {
     const headers = ['name', 'variety', 'family', 'category', 'sow_indoors_timing', 'direct_sow_timing', 'days_to_harvest', 'in_ground_start', 'in_ground_end', 'seed_quantity', 'notes']
-    const familyOptions = families.map(f => f.name).join(' | ')
-    const example = ['Tomato', 'Heirloom', 'Nightshades (Solanaceae)', 'vegetable', '6-8 weeks before frost', '1 week after frost', '82', 'May 1st', '', '1/10 gram', 'Example note']
-    const info = [`# Valid families: ${familyOptions}`, '# Valid categories: vegetable | herb | flower | fruit', '# Delete these comment rows before importing']
-    const csv = [...info, headers.join(','), example.join(',')].join('\n')
+    const familyNames = families.map(f => f.name)
+    // Build example rows — one per family so users can see valid options
+    const categoryOptions = ['vegetable', 'herb', 'flower', 'fruit']
+    const exampleRows = familyNames.map((fam, i) => [
+      i === 0 ? 'Tomato' : '',
+      i === 0 ? 'Heirloom' : '',
+      fam,
+      categoryOptions[i % categoryOptions.length],
+      '', '', '', '', '', '', i === 0 ? 'Delete example rows before importing' : ''
+    ])
+    const rows = [headers, ...exampleRows].map(r => r.map(v => v.includes(',') ? `"${v}"` : v).join(','))
+    const csv = rows.join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
