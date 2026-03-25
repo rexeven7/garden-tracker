@@ -59,7 +59,7 @@ export default function Plantings({ user }) {
 
   async function loadAll() {
     const [pRes, bRes, plRes, sRes, fRes] = await Promise.all([
-      supabase.from('plantings').select('*, beds(name), seasons(year), plants(name, variety, family_id), plant_families!custom_family_id(name, color)').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('plantings').select('*, beds(name), seasons(year), plants(name, variety, family_id, plant_families(name, color)), plant_families!plantings_custom_family_id_fkey(name, color)').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('beds').select('*').eq('user_id', user.id).order('name'),
       supabase.from('plants').select('id, name, variety, family_id, days_to_harvest, sow_indoors_timing, water_frequency_days, fertilize_frequency_weeks, plant_families(name, color)').eq('user_id', user.id).order('name'),
       supabase.from('seasons').select('*').eq('user_id', user.id).order('year', { ascending: false }),
