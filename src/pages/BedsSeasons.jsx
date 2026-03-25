@@ -1,13 +1,33 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
+// Approximate frost dates by US latitude band
+const FROST_BY_LAT = [
+  { maxLat: 30, spring: ['02-01', '03-01'], fall: ['11-15', '12-15'] },
+  { maxLat: 33, spring: ['03-01', '04-01'], fall: ['10-25', '11-15'] },
+  { maxLat: 36, spring: ['04-01', '04-15'], fall: ['10-15', '10-28'] },
+  { maxLat: 40, spring: ['04-10', '04-25'], fall: ['10-01', '10-20'] },
+  { maxLat: 44, spring: ['04-20', '05-05'], fall: ['09-20', '10-08'] },
+  { maxLat: 47, spring: ['05-01', '05-15'], fall: ['09-10', '09-25'] },
+  { maxLat: 90, spring: ['05-15', '06-01'], fall: ['08-25', '09-15'] },
+]
+
 // ── Beds Page ──────────────────────────────────────────────────
 export function Beds({ user }) {
   const [beds, setBeds] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
-  const emptyForm = { name: '', description: '', size_sqft: '', location_notes: '' }
+  const BED_TYPES = [
+    { value: 'raised_bed', label: '🪵 Raised Bed' },
+    { value: 'in_ground', label: '🌍 In-Ground' },
+    { value: 'container', label: '🪣 Container / Pot' },
+    { value: 'seed_tray', label: '🌱 Seed Tray / Indoor' },
+    { value: 'greenhouse', label: '🏡 Greenhouse' },
+    { value: 'other', label: '📦 Other' },
+  ]
+
+  const emptyForm = { name: '', description: '', size_sqft: '', location_notes: '', type: 'raised_bed' }
   const [form, setForm] = useState(emptyForm)
 
   useEffect(() => { load() }, [])
@@ -19,10 +39,10 @@ export function Beds({ user }) {
   }
 
   function openNew() { setEditing(null); setForm(emptyForm); setShowModal(true) }
-  function openEdit(b) { setEditing(b.id); setForm({ name: b.name, description: b.description || '', size_sqft: b.size_sqft || '', location_notes: b.location_notes || '' }); setShowModal(true) }
+  function openEdit(b) { setEditing(b.id); setForm({ name: b.name, description: b.description || '', size_sqft: b.size_sqft || '', location_notes: b.location_notes || '', type: b.type || 'raised_bed' }); setShowModal(true) }
 
   async function save() {
-    const payload = { ...form, user_id: user.id, size_sqft: form.size_sqft ? parseFloat(form.size_sqft) : null }
+    const payload = { ...form, user_id: user.id, size_sqft: form.size_sqft ? parseFloat(form.size_sqft) : null, type: form.type || 'raised_bed' }
     if (editing) await supabase.from('beds').update(payload).eq('id', editing)
     else await supabase.from('beds').insert(payload)
     setShowModal(false)
@@ -65,6 +85,7 @@ export function Beds({ user }) {
                   <button className="btn btn-danger btn-sm" onClick={() => deleteBed(b.id)}>✕</button>
                 </div>
               </div>
+              {b.type && <p className="text-sm mb-1">{BED_TYPES.find(t => t.value === b.type)?.label || b.type}</p>}
               {b.description && <p className="text-sm mb-1">{b.description}</p>}
               {b.size_sqft && <p className="text-sm text-muted">📐 {b.size_sqft} sq ft</p>}
               {b.location_notes && <p className="text-sm text-muted mt-1">📍 {b.location_notes}</p>}
@@ -80,9 +101,17 @@ export function Beds({ user }) {
               <h2>{editing ? 'Edit Bed' : 'Add Bed'}</h2>
               <button className="btn btn-ghost btn-sm" onClick={() => setShowModal(false)}>✕</button>
             </div>
-            <div className="form-group">
-              <label>Bed Name *</label>
-              <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Raised Bed 1, South Garden, Herb Patch" />
+            <div className="form-row">
+              <div className="form-group">
+                <label>Bed Name *</label>
+                <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Raised Bed 1, South Garden, Herb Patch" />
+              </div>
+              <div className="form-group">
+                <label>Type</label>
+                <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
+                  {BED_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
             </div>
             <div className="form-group">
               <label>Description</label>
@@ -117,6 +146,8 @@ export function Seasons({ user }) {
   const [editing, setEditing] = useState(null)
   const emptyForm = { year: new Date().getFullYear(), spring_frost_start: '', spring_frost_end: '', fall_frost_start: '', fall_frost_end: '', notes: '' }
   const [form, setForm] = useState(emptyForm)
+  const [zip, setZip] = useState('')
+  const [lookingUp, setLookingUp] = useState(false)
 
   useEffect(() => { load() }, [])
 
@@ -126,11 +157,35 @@ export function Seasons({ user }) {
     setLoading(false)
   }
 
-  function openNew() { setEditing(null); setForm(emptyForm); setShowModal(true) }
+  function openNew() { setEditing(null); setForm(emptyForm); setZip(''); setShowModal(true) }
   function openEdit(s) {
     setEditing(s.id)
     setForm({ year: s.year, spring_frost_start: s.spring_frost_start || '', spring_frost_end: s.spring_frost_end || '', fall_frost_start: s.fall_frost_start || '', fall_frost_end: s.fall_frost_end || '', notes: s.notes || '' })
+    setZip('')
     setShowModal(true)
+  }
+
+  async function lookupFrostDates() {
+    if (!zip || zip.length < 5) return
+    setLookingUp(true)
+    try {
+      const res = await fetch(`https://api.zippopotam.us/us/${zip}`)
+      if (!res.ok) throw new Error('ZIP not found')
+      const data = await res.json()
+      const lat = parseFloat(data.places[0].latitude)
+      const entry = FROST_BY_LAT.find(e => lat < e.maxLat) || FROST_BY_LAT[FROST_BY_LAT.length - 1]
+      const yr = form.year
+      setForm(f => ({
+        ...f,
+        spring_frost_start: `${yr}-${entry.spring[0]}`,
+        spring_frost_end: `${yr}-${entry.spring[1]}`,
+        fall_frost_start: `${yr}-${entry.fall[0]}`,
+        fall_frost_end: `${yr}-${entry.fall[1]}`,
+      }))
+    } catch {
+      alert('Could not find frost dates for that ZIP code. Check the zip and try again, or enter dates manually.')
+    }
+    setLookingUp(false)
   }
 
   async function save() {
@@ -215,7 +270,28 @@ export function Seasons({ user }) {
               <label>Year *</label>
               <input type="number" value={form.year} onChange={e => setForm({ ...form, year: e.target.value })} />
             </div>
-            <p className="text-sm text-muted mb-2">Her 2025 spring frost: April 18–30 · Fall frost: Oct 3–21</p>
+            <div className="form-row" style={{ alignItems: 'flex-end' }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>Look up frost dates by ZIP code</label>
+                <input
+                  value={zip}
+                  onChange={e => setZip(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                  placeholder="e.g. 90210"
+                  maxLength={5}
+                />
+              </div>
+              <div className="form-group" style={{ flex: '0 0 auto' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={lookupFrostDates}
+                  disabled={lookingUp || zip.length < 5}
+                >
+                  {lookingUp ? 'Looking up…' : '🌡 Auto-fill'}
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-muted mb-2" style={{ marginTop: '-0.5rem' }}>Approximate dates based on your location — adjust as needed.</p>
             <div className="form-row">
               <div className="form-group">
                 <label>Spring Frost Start</label>

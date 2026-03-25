@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, addDays } from 'date-fns'
 
 const STATUSES = ['planned', 'seeded', 'transplanted', 'growing', 'harvested', 'failed']
 const STATUS_EMOJI = { planned: '📋', seeded: '🫘', transplanted: '🌱', growing: '🌿', harvested: '🧺', failed: '🥀' }
@@ -15,6 +15,7 @@ export default function Plantings({ user }) {
   const [showModal, setShowModal] = useState(false)
   const [showTaskModal, setShowTaskModal] = useState(null) // planting id
   const [editing, setEditing] = useState(null)
+  const [autoTaskMsg, setAutoTaskMsg] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterBed, setFilterBed] = useState('all')
 
@@ -35,7 +36,7 @@ export default function Plantings({ user }) {
     const [pRes, bRes, plRes, sRes, fRes] = await Promise.all([
       supabase.from('plantings').select('*, beds(name), seasons(year), plants(name, variety, family_id), plant_families!custom_family_id(name, color)').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('beds').select('*').eq('user_id', user.id).order('name'),
-      supabase.from('plants').select('id, name, variety, family_id, plant_families(name, color)').eq('user_id', user.id).order('name'),
+      supabase.from('plants').select('id, name, variety, family_id, days_to_harvest, sow_indoors_timing, plant_families(name, color)').eq('user_id', user.id).order('name'),
       supabase.from('seasons').select('*').eq('user_id', user.id).order('year', { ascending: false }),
       supabase.from('plant_families').select('*').order('name'),
     ])
@@ -83,11 +84,17 @@ export default function Plantings({ user }) {
     }
     if (editing) {
       await supabase.from('plantings').update(payload).eq('id', editing)
+      setShowModal(false)
+      loadAll()
     } else {
-      await supabase.from('plantings').insert(payload)
+      const { data, error } = await supabase.from('plantings').insert(payload).select().single()
+      setShowModal(false)
+      loadAll()
+      if (!error && data && (form.date_seeded || form.date_transplanted)) {
+        const taskCount = await generateAutoTasks(data.id, form)
+        if (taskCount > 0) setAutoTaskMsg(`✅ ${taskCount} task${taskCount !== 1 ? 's' : ''} auto-scheduled based on your dates and plant data.`)
+      }
     }
-    setShowModal(false)
-    loadAll()
   }
 
   async function deletePlanting(id) {
@@ -95,6 +102,103 @@ export default function Plantings({ user }) {
     await supabase.from('tasks').delete().eq('planting_id', id)
     await supabase.from('plantings').delete().eq('id', id)
     loadAll()
+  }
+
+  async function generateAutoTasks(plantingId, form) {
+    const plant = plants.find(p => p.id === form.plant_id)
+    const season = seasons.find(s => s.id === form.season_id)
+    const plantName = plant?.name || form.custom_name || 'plant'
+    const tasks = []
+
+    const hasSeedDate = !!form.date_seeded
+    const hasTransplantDate = !!form.date_transplanted
+    const hasHarvestDate = !!form.date_first_harvest
+
+    // If transplant date is already set, just calculate harvest from it
+    if (hasTransplantDate) {
+      if (!hasHarvestDate && plant?.days_to_harvest) {
+        const dth = parseInt(plant.days_to_harvest)
+        if (!isNaN(dth)) {
+          tasks.push({
+            user_id: user.id, planting_id: plantingId,
+            title: `First harvest: ${plantName}`,
+            task_type: 'harvest',
+            due_date: format(addDays(parseISO(form.date_transplanted), dth), 'yyyy-MM-dd'),
+            notes: `~${dth} days from transplant date`,
+          })
+        }
+      }
+    } else if (hasSeedDate) {
+      const seedDate = parseISO(form.date_seeded)
+      const isIndoor = plant?.sow_indoors_timing &&
+        plant.sow_indoors_timing.toLowerCase() !== 'not recommended'
+
+      if (isIndoor) {
+        // Thin seedlings ~2 weeks after seeding
+        tasks.push({
+          user_id: user.id, planting_id: plantingId,
+          title: `Thin ${plantName} seedlings`,
+          task_type: 'thin',
+          due_date: format(addDays(seedDate, 14), 'yyyy-MM-dd'),
+          notes: 'Keep the strongest seedling per cell, remove the rest',
+        })
+
+        if (season?.spring_frost_end) {
+          const frostEnd = parseISO(season.spring_frost_end)
+          const transplantDate = addDays(frostEnd, 7)
+          tasks.push({
+            user_id: user.id, planting_id: plantingId,
+            title: `Transplant ${plantName} outdoors`,
+            task_type: 'transplant',
+            due_date: format(transplantDate, 'yyyy-MM-dd'),
+            notes: `1 week after last spring frost (${format(frostEnd, 'MMM d')}). Harden off for a few days first.`,
+          })
+          if (!hasHarvestDate && plant?.days_to_harvest) {
+            const dth = parseInt(plant.days_to_harvest)
+            if (!isNaN(dth)) {
+              tasks.push({
+                user_id: user.id, planting_id: plantingId,
+                title: `First harvest: ${plantName}`,
+                task_type: 'harvest',
+                due_date: format(addDays(transplantDate, dth), 'yyyy-MM-dd'),
+                notes: `~${dth} days from estimated transplant date`,
+              })
+            }
+          }
+        } else if (!hasHarvestDate && plant?.days_to_harvest) {
+          // No frost dates — rough estimate (seed + 6 weeks buffer + dth)
+          const dth = parseInt(plant.days_to_harvest)
+          if (!isNaN(dth)) {
+            tasks.push({
+              user_id: user.id, planting_id: plantingId,
+              title: `First harvest: ${plantName}`,
+              task_type: 'harvest',
+              due_date: format(addDays(seedDate, dth + 42), 'yyyy-MM-dd'),
+              notes: `Rough estimate — add frost dates to your season for better accuracy`,
+            })
+          }
+        }
+      } else {
+        // Direct sow
+        if (!hasHarvestDate && plant?.days_to_harvest) {
+          const dth = parseInt(plant.days_to_harvest)
+          if (!isNaN(dth)) {
+            tasks.push({
+              user_id: user.id, planting_id: plantingId,
+              title: `First harvest: ${plantName}`,
+              task_type: 'harvest',
+              due_date: format(addDays(seedDate, dth), 'yyyy-MM-dd'),
+              notes: `~${dth} days from direct sow date`,
+            })
+          }
+        }
+      }
+    }
+
+    if (tasks.length > 0) {
+      await supabase.from('tasks').insert(tasks)
+    }
+    return tasks.length
   }
 
   async function saveTask() {
@@ -143,6 +247,14 @@ export default function Plantings({ user }) {
         </div>
         <button className="btn btn-primary" onClick={openNew}>+ Add Planting</button>
       </div>
+
+      {/* Auto-task notification */}
+      {autoTaskMsg && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span className="text-sm">{autoTaskMsg}</span>
+          <button className="btn btn-ghost btn-sm" onClick={() => setAutoTaskMsg(null)}>✕</button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-1 mb-2" style={{ flexWrap: 'wrap' }}>
@@ -260,7 +372,20 @@ export default function Plantings({ user }) {
                 <label>Bed / Area</label>
                 <select value={form.bed_id} onChange={e => setForm({ ...form, bed_id: e.target.value })}>
                   <option value="">— Select bed —</option>
-                  {beds.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  {beds.filter(b => b.type !== 'seed_tray').length > 0 && (
+                    <optgroup label="Outdoor / Growing Beds">
+                      {beds.filter(b => !b.type || b.type !== 'seed_tray').map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {beds.filter(b => b.type === 'seed_tray').length > 0 && (
+                    <optgroup label="Indoor / Seed Trays">
+                      {beds.filter(b => b.type === 'seed_tray').map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </div>
               <div className="form-group">
