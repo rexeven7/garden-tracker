@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import AuthPage from './pages/AuthPage'
 import Dashboard from './pages/Dashboard'
 import Plantings from './pages/Plantings'
@@ -117,6 +118,7 @@ export default function App() {
       <main className="main-content">
         {renderPage()}
       </main>
+      <SpeedInsights />
     </div>
   )
 }
