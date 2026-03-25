@@ -107,16 +107,21 @@ export default function Plantings({ user }) {
       date_transplanted: form.date_transplanted || null,
       date_first_harvest: form.date_first_harvest || null,
       date_last_harvest: form.date_last_harvest || null,
+      harvest_quantity: form.harvest_quantity || null,
+      harvest_notes: form.harvest_notes || null,
+      taste_rating: form.taste_rating || null,
     }
     if (editing) {
-      await supabase.from('plantings').update(payload).eq('id', editing)
+      const { error } = await supabase.from('plantings').update(payload).eq('id', editing)
+      if (error) { alert('Error saving planting: ' + error.message); return }
       setShowModal(false)
       loadAll()
     } else {
       const { data, error } = await supabase.from('plantings').insert(payload).select().single()
+      if (error) { alert('Error saving planting: ' + error.message); return }
       setShowModal(false)
       loadAll()
-      if (!error && data && (form.date_seeded || form.date_transplanted)) {
+      if (data && (form.date_seeded || form.date_transplanted)) {
         const taskCount = await generateAutoTasks(data.id, form)
         if (taskCount > 0) setAutoTaskMsg(`✅ ${taskCount} task${taskCount !== 1 ? 's' : ''} auto-scheduled based on your dates and plant data.`)
       }
