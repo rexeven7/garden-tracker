@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase, SEED_PLANTS } from '../lib/supabase'
 
 const CATEGORIES = ['vegetable', 'herb', 'flower', 'fruit']
@@ -8,6 +8,8 @@ export default function PlantLibrary({ user }) {
   const [families, setFamilies] = useState([])
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const csvInputRef = useRef(null)
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [search, setSearch] = useState('')
@@ -58,6 +60,77 @@ export default function PlantLibrary({ user }) {
     loadAll()
   }
 
+  function downloadTemplate() {
+    const headers = ['name', 'variety', 'family', 'category', 'sow_indoors_timing', 'direct_sow_timing', 'days_to_harvest', 'in_ground_start', 'in_ground_end', 'seed_quantity', 'notes']
+    const familyOptions = families.map(f => f.name).join(' | ')
+    const example = ['Tomato', 'Heirloom', 'Nightshades (Solanaceae)', 'vegetable', '6-8 weeks before frost', '1 week after frost', '82', 'May 1st', '', '1/10 gram', 'Example note']
+    const info = [`# Valid families: ${familyOptions}`, '# Valid categories: vegetable | herb | flower | fruit', '# Delete these comment rows before importing']
+    const csv = [...info, headers.join(','), example.join(',')].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'plant-library-template.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function parseCSVLine(line) {
+    const result = []
+    let current = ''
+    let inQuotes = false
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === '"') {
+        inQuotes = !inQuotes
+      } else if (line[i] === ',' && !inQuotes) {
+        result.push(current.trim())
+        current = ''
+      } else {
+        current += line[i]
+      }
+    }
+    result.push(current.trim())
+    return result
+  }
+
+  async function handleCSVUpload(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    e.target.value = ''
+    setImporting(true)
+    const text = await file.text()
+    const lines = text.split('\n').filter(l => l.trim() && !l.trim().startsWith('#'))
+    if (lines.length < 2) { setImporting(false); alert('No plant rows found in file.'); return }
+    const headers = parseCSVLine(lines[0])
+    const familyMap = {}
+    families.forEach(f => { familyMap[f.name.toLowerCase()] = f.id })
+    const rows = lines.slice(1).map(line => {
+      const vals = parseCSVLine(line)
+      const obj = {}
+      headers.forEach((h, i) => { obj[h] = vals[i] || '' })
+      return {
+        user_id: user.id,
+        name: obj.name || null,
+        variety: obj.variety || null,
+        family_id: familyMap[(obj.family || '').toLowerCase()] || null,
+        category: obj.category || 'vegetable',
+        sow_indoors_timing: obj.sow_indoors_timing || null,
+        direct_sow_timing: obj.direct_sow_timing || null,
+        days_to_harvest: obj.days_to_harvest || null,
+        in_ground_start: obj.in_ground_start || null,
+        in_ground_end: obj.in_ground_end || null,
+        seed_quantity: obj.seed_quantity || null,
+        notes: obj.notes || null,
+      }
+    }).filter(r => r.name)
+    if (rows.length === 0) { setImporting(false); alert('No valid plant rows found. Make sure the file has a "name" column.'); return }
+    const { error } = await supabase.from('plants').insert(rows)
+    setImporting(false)
+    if (error) { alert('Import failed: ' + error.message); return }
+    alert(`Successfully imported ${rows.length} plants!`)
+    loadAll()
+  }
+
   function openNew() { setEditing(null); setForm(emptyForm); setShowModal(true) }
   function openEdit(p) {
     setEditing(p.id)
@@ -105,9 +178,14 @@ export default function PlantLibrary({ user }) {
         <div className="flex gap-1">
           {plants.length === 0 && (
             <button className="btn btn-secondary" onClick={seedLibrary} disabled={seeding}>
-              {seeding ? 'Importing…' : '📥 Import from Spreadsheet'}
+              {seeding ? 'Loading…' : '🌱 Load Sample Plants'}
             </button>
           )}
+          <button className="btn btn-secondary" onClick={downloadTemplate}>📄 Download Template</button>
+          <button className="btn btn-secondary" onClick={() => csvInputRef.current.click()} disabled={importing}>
+            {importing ? 'Importing…' : '📥 Import CSV'}
+          </button>
+          <input ref={csvInputRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleCSVUpload} />
           <button className="btn btn-primary" onClick={openNew}>+ Add Plant</button>
         </div>
       </div>
@@ -132,7 +210,7 @@ export default function PlantLibrary({ user }) {
           <p>{plants.length === 0 ? 'Import your spreadsheet data or add plants manually.' : 'Try a different search.'}</p>
           {plants.length === 0 && (
             <button className="btn btn-primary mt-2" onClick={seedLibrary} disabled={seeding}>
-              {seeding ? 'Importing…' : '📥 Import from Spreadsheet'}
+              {seeding ? 'Loading…' : '🌱 Load Sample Plants'}
             </button>
           )}
         </div>
