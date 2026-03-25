@@ -17,6 +17,111 @@ function getIntervalDays(recur_type, recur_interval_days) {
   return opt?.days ?? (recur_interval_days || 7)
 }
 
+function CompletionLogFields({ taskType, form, setForm }) {
+  const f = (field, val) => setForm(prev => ({ ...prev, [field]: val }))
+
+  if (taskType === 'water') return (
+    <>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Amount</label>
+          <select value={form.log_amount} onChange={e => f('log_amount', e.target.value)}>
+            <option value="">— Select —</option>
+            <option>Light (surface only)</option>
+            <option>Moderate</option>
+            <option>Deep soak</option>
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Method</label>
+          <select value={form.log_method} onChange={e => f('log_method', e.target.value)}>
+            <option value="">— Select —</option>
+            <option>Hand watering</option>
+            <option>Drip irrigation</option>
+            <option>Soaker hose</option>
+            <option>Rain</option>
+          </select>
+        </div>
+      </div>
+      <div className="form-group">
+        <label>Notes (optional)</label>
+        <input placeholder="e.g. soil was very dry" value={form.completion_notes} onChange={e => f('completion_notes', e.target.value)} />
+      </div>
+    </>
+  )
+
+  if (taskType === 'fertilize') return (
+    <>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Fertilizer / product</label>
+          <input placeholder="e.g. fish emulsion, 10-10-10" value={form.log_product} onChange={e => f('log_product', e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label>Method</label>
+          <select value={form.log_method} onChange={e => f('log_method', e.target.value)}>
+            <option value="">— Select —</option>
+            <option>Top-dress</option>
+            <option>Liquid drench</option>
+            <option>Foliar spray</option>
+            <option>Side-dress</option>
+          </select>
+        </div>
+      </div>
+      <div className="form-group">
+        <label>Amount</label>
+        <input placeholder="e.g. 1 tbsp per gallon, handful" value={form.log_amount} onChange={e => f('log_amount', e.target.value)} />
+      </div>
+    </>
+  )
+
+  if (taskType === 'treat') return (
+    <>
+      <div className="form-group">
+        <label>Product used</label>
+        <input placeholder="e.g. neem oil, insecticidal soap" value={form.log_product} onChange={e => f('log_product', e.target.value)} />
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Amount / concentration</label>
+          <input placeholder="e.g. 2% dilution" value={form.log_amount} onChange={e => f('log_amount', e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label>Method</label>
+          <select value={form.log_method} onChange={e => f('log_method', e.target.value)}>
+            <option value="">— Select —</option>
+            <option>Foliar spray</option>
+            <option>Soil drench</option>
+            <option>Dusting</option>
+            <option>Hand removal</option>
+          </select>
+        </div>
+      </div>
+    </>
+  )
+
+  if (taskType === 'prune' || taskType === 'thin') return (
+    <>
+      <div className="form-group">
+        <label>Amount removed</label>
+        <input placeholder="e.g. 3 stems, thinned to 6 inches" value={form.log_amount} onChange={e => f('log_amount', e.target.value)} />
+      </div>
+      <div className="form-group">
+        <label>Notes (optional)</label>
+        <input placeholder="e.g. removed diseased branches" value={form.completion_notes} onChange={e => f('completion_notes', e.target.value)} />
+      </div>
+    </>
+  )
+
+  // Default for harvest, transplant, other
+  return (
+    <div className="form-group">
+      <label>Completion notes (optional)</label>
+      <textarea rows={2} placeholder="Any observations, quantities, issues…" value={form.completion_notes} onChange={e => f('completion_notes', e.target.value)} />
+    </div>
+  )
+}
+
 export default function Tasks({ user }) {
   const [tasks, setTasks] = useState([])
   const [plantings, setPlantings] = useState([])
@@ -24,6 +129,11 @@ export default function Tasks({ user }) {
   const [view, setView] = useState('list') // 'list' | 'calendar'
   const [filterType, setFilterType] = useState('all')
   const [showDone, setShowDone] = useState(false)
+
+  // Completion log modal
+  const [completingTask, setCompletingTask] = useState(null)
+  const emptyLog = { log_method: '', log_amount: '', log_product: '', completion_notes: '' }
+  const [logForm, setLogForm] = useState(emptyLog)
 
   // Modal state
   const [showModal, setShowModal] = useState(false)
@@ -88,9 +198,22 @@ export default function Tasks({ user }) {
     load()
   }
 
-  async function toggleDone(task) {
+  function startComplete(task) {
+    if (task.completed_at) {
+      // Uncomplete — no log needed
+      toggleDone(task, {})
+      return
+    }
+    setLogForm(emptyLog)
+    setCompletingTask(task)
+  }
+
+  async function toggleDone(task, logData = {}) {
     const val = task.completed_at ? null : new Date().toISOString()
-    await supabase.from('tasks').update({ completed_at: val }).eq('id', task.id)
+    await supabase.from('tasks').update({
+      completed_at: val,
+      ...(!task.completed_at ? logData : {}),
+    }).eq('id', task.id)
 
     // Generate next occurrence when completing a recurring task
     if (!task.completed_at && task.recur_type && task.due_date) {
@@ -112,6 +235,17 @@ export default function Tasks({ user }) {
       }
     }
     load()
+  }
+
+  async function submitLog() {
+    const logData = {
+      log_method:        logForm.log_method || null,
+      log_amount:        logForm.log_amount || null,
+      log_product:       logForm.log_product || null,
+      completion_notes:  logForm.completion_notes || null,
+    }
+    await toggleDone(completingTask, logData)
+    setCompletingTask(null)
   }
 
   async function deleteTask(id) {
@@ -156,7 +290,7 @@ export default function Tasks({ user }) {
   function TaskRow({ task }) {
     return (
       <div className={`task-item ${task.completed_at ? 'done' : ''}`}>
-        <div className={`task-check ${task.completed_at ? 'checked' : ''}`} onClick={() => toggleDone(task)}>
+        <div className={`task-check ${task.completed_at ? 'checked' : ''}`} onClick={() => startComplete(task)}>
           {task.completed_at && <span style={{ color: 'white', fontSize: '11px' }}>✓</span>}
         </div>
         <div className="task-type-icon">{TASK_ICONS[task.task_type] || '📋'}</div>
@@ -167,6 +301,14 @@ export default function Tasks({ user }) {
             {recurLabel(task) && <span style={{ marginLeft: '0.5rem', opacity: 0.7 }}>{recurLabel(task)}</span>}
           </div>
           {task.notes && <div className="text-sm text-muted">{task.notes}</div>}
+          {task.completed_at && (task.log_amount || task.log_method || task.log_product || task.completion_notes) && (
+            <div className="task-log-summary">
+              {task.log_amount && <span>📏 {task.log_amount}</span>}
+              {task.log_method && <span>🔧 {task.log_method}</span>}
+              {task.log_product && <span>🧴 {task.log_product}</span>}
+              {task.completion_notes && <span>📝 {task.completion_notes}</span>}
+            </div>
+          )}
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
           {task.due_date && (
@@ -356,6 +498,32 @@ export default function Tasks({ user }) {
       )}
 
       {/* Add / Edit modal */}
+      {/* Completion log modal */}
+      {completingTask && (
+        <div className="modal-backdrop" onClick={() => setCompletingTask(null)}>
+          <div className="modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2>Log completion</h2>
+                <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: '0.1rem' }}>{completingTask.title}</p>
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={() => setCompletingTask(null)}>✕</button>
+            </div>
+
+            <CompletionLogFields
+              taskType={completingTask.task_type}
+              form={logForm}
+              setForm={setLogForm}
+            />
+
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => { toggleDone(completingTask, {}); setCompletingTask(null) }}>Skip log</button>
+              <button className="btn btn-primary" onClick={submitLog}>Mark complete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showModal && (
         <div className="modal-backdrop" onClick={() => setShowModal(false)}>
           <div className="modal" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>

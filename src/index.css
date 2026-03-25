@@ -669,6 +669,176 @@ tbody tr:last-child { border-bottom: none; }
 .location-result-item:hover:not(:disabled) { background: var(--fog); }
 .location-result-item:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* ── Star rating ─────────────────────────────────────────── */
+.star-rating {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.star {
+  font-size: 1.4rem;
+  cursor: pointer;
+  color: var(--fog);
+  transition: color 0.1s;
+  line-height: 1;
+  user-select: none;
+}
+
+.star.filled { color: var(--straw); }
+.star:hover  { color: var(--straw); }
+
+.star-clear {
+  font-size: 1rem;
+  color: var(--muted);
+  cursor: pointer;
+  margin-left: 4px;
+  line-height: 1;
+}
+
+.star-clear:hover { color: var(--red); }
+
+.star-rating-sm { display: inline-flex; gap: 1px; }
+
+/* ── Task log summary ───────────────────────────────────── */
+.task-log-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.75rem;
+  margin-top: 0.3rem;
+}
+
+.task-log-summary span {
+  font-size: 0.78rem;
+  color: var(--muted);
+  background: var(--parchment);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+/* ── Harvest grid (Dashboard) ───────────────────────────── */
+.harvest-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.6rem;
+  padding-top: 0.25rem;
+}
+
+.harvest-item {
+  background: var(--parchment);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.harvest-item-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.harvest-item-qty {
+  font-size: 0.8rem;
+  color: var(--leaf);
+  font-weight: 600;
+}
+
+/* ── Issue cards ───────────────────────────────────────────── */
+.issue-section-label {
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--bark);
+  margin-bottom: 0.5rem;
+}
+
+.issue-card {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  background: white;
+  border: 1px solid var(--fog);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.6rem;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.1s;
+}
+
+.issue-card:hover { background: var(--parchment); }
+.issue-card.resolved { opacity: 0.6; }
+
+.issue-card-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.issue-type-icon { font-size: 1.3rem; }
+
+.issue-severity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.issue-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.issue-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.issue-description {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 0.1rem;
+}
+
+.issue-treatment {
+  font-size: 0.82rem;
+  color: var(--bark);
+  background: #f0fdf4;
+  border-left: 3px solid var(--sage);
+  padding: 0.3rem 0.6rem;
+  border-radius: 0 4px 4px 0;
+  margin-top: 0.25rem;
+}
+
+.issue-meta {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+
+.issue-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .issue-card { flex-direction: column; }
+  .issue-card-actions { flex-direction: row; }
+}
+
 .pill {
   display: inline-block;
   padding: 0.2rem 0.65rem;

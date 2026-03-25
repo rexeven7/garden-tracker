@@ -9,6 +9,7 @@ import PlantLibrary from './pages/PlantLibrary'
 import Rotation from './pages/Rotation'
 import Tasks from './pages/Tasks'
 import Admin from './pages/Admin'
+import Issues from './pages/Issues'
 import { Beds, Seasons } from './pages/BedsSeasons'
 import './index.css'
 
@@ -18,6 +19,7 @@ const NAV = [
   { id: 'dashboard',  label: 'Dashboard',     icon: '🏡', section: null },
   { id: 'plantings',  label: 'Plantings',      icon: '🌱', section: 'This Season' },
   { id: 'tasks',      label: 'Tasks',           icon: '✅', section: null },
+  { id: 'issues',     label: 'Pest & Issues',   icon: '🐛', section: null },
   { id: 'rotation',   label: 'Crop Rotation',   icon: '🔄', section: null },
   { id: 'library',    label: 'Plant Library',   icon: '📚', section: 'Setup' },
   { id: 'beds',       label: 'Beds & Areas',    icon: '🪴', section: null },
@@ -67,6 +69,7 @@ export default function App() {
       case 'dashboard': return <Dashboard user={user} />
       case 'plantings': return <Plantings user={user} />
       case 'tasks':     return <Tasks user={user} />
+      case 'issues':    return <Issues user={user} />
       case 'rotation':  return <Rotation user={user} />
       case 'library':   return <PlantLibrary user={user} />
       case 'beds':      return <Beds user={user} />
