@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { format, isToday, isPast, parseISO, addDays } from 'date-fns'
+import WeatherWidget from '../components/WeatherWidget'
 
 const TASK_ICONS = { water: '💧', fertilize: '🌿', thin: '✂️', prune: '🪴', treat: '🧪', harvest: '🧺', transplant: '🌱', other: '📋' }
 const STATUS_ORDER = ['seeded', 'transplanted', 'growing', 'planned']
@@ -60,6 +61,8 @@ export default function Dashboard({ user }) {
           <p className="text-muted">Here's what's happening in your garden today</p>
         </div>
       </div>
+
+      <WeatherWidget user={user} />
 
       {/* Stats */}
       <div className="grid-4 mb-2">
