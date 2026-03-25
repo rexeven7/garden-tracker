@@ -5,6 +5,27 @@ import { format, parseISO, addDays } from 'date-fns'
 const STATUSES = ['planned', 'seeded', 'transplanted', 'growing', 'harvested', 'failed']
 const STATUS_EMOJI = { planned: '📋', seeded: '🫘', transplanted: '🌱', growing: '🌿', harvested: '🧺', failed: '🥀' }
 
+function StarRating({ value, onChange, readOnly = false }) {
+  const [hover, setHover] = useState(0)
+  const current = parseInt(value) || 0
+  return (
+    <div className="star-rating" style={{ pointerEvents: readOnly ? 'none' : 'auto' }}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <span
+          key={i}
+          className={`star ${i <= (hover || current) ? 'filled' : ''}`}
+          onClick={() => onChange && onChange(i === current ? '' : i)}
+          onMouseEnter={() => !readOnly && setHover(i)}
+          onMouseLeave={() => !readOnly && setHover(0)}
+        >★</span>
+      ))}
+      {!readOnly && current > 0 && (
+        <span className="star-clear" onClick={() => onChange && onChange('')} title="Clear rating">×</span>
+      )}
+    </div>
+  )
+}
+
 export default function Plantings({ user }) {
   const [plantings, setPlantings] = useState([])
   const [beds, setBeds] = useState([])
@@ -14,6 +35,9 @@ export default function Plantings({ user }) {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [showTaskModal, setShowTaskModal] = useState(null) // planting id
+  const [showIssueModal, setShowIssueModal] = useState(null) // planting id
+  const emptyIssue = { issue_type: 'pest', title: '', severity: 'medium', description: '', treatment: '' }
+  const [issueForm, setIssueForm] = useState(emptyIssue)
   const [editing, setEditing] = useState(null)
   const [autoTaskMsg, setAutoTaskMsg] = useState(null)
   const [generatingSchedule, setGeneratingSchedule] = useState(null) // planting id
@@ -24,7 +48,7 @@ export default function Plantings({ user }) {
     plant_id: '', custom_name: '', custom_family_id: '',
     bed_id: '', season_id: '',
     date_seeded: '', date_transplanted: '', date_first_harvest: '', date_last_harvest: '',
-    status: 'planned', notes: '', harvest_quantity: '', harvest_notes: ''
+    status: 'planned', notes: '', harvest_quantity: '', harvest_notes: '', taste_rating: ''
   }
   const [form, setForm] = useState(emptyForm)
 
@@ -66,6 +90,7 @@ export default function Plantings({ user }) {
       notes: p.notes || '',
       harvest_quantity: p.harvest_quantity || '',
       harvest_notes: p.harvest_notes || '',
+      taste_rating: p.taste_rating || ''
     })
     setShowModal(true)
   }
@@ -262,6 +287,21 @@ export default function Plantings({ user }) {
     setTaskForm(emptyTask)
   }
 
+  async function saveIssue() {
+    if (!issueForm.title.trim()) return
+    await supabase.from('issues').insert({
+      user_id: user.id,
+      planting_id: showIssueModal,
+      issue_type: issueForm.issue_type,
+      title: issueForm.title,
+      severity: issueForm.severity,
+      description: issueForm.description || null,
+      treatment: issueForm.treatment || null,
+    })
+    setShowIssueModal(null)
+    setIssueForm(emptyIssue)
+  }
+
   async function quickStatus(id, status) {
     await supabase.from('plantings').update({ status }).eq('id', id)
     setPlantings(p => p.map(x => x.id === id ? { ...x, status } : x))
@@ -357,7 +397,10 @@ export default function Plantings({ user }) {
                       ) : '—'}
                     </td>
                     <td className="text-sm">{p.date_seeded ? format(parseISO(p.date_seeded), 'MMM d') : '—'}</td>
-                    <td className="text-sm">{p.date_transplanted ? format(parseISO(p.date_transplanted), 'MMM d') : '—'}</td>
+                    <td className="text-sm">
+                      {p.date_transplanted ? format(parseISO(p.date_transplanted), 'MMM d') : '—'}
+                      {p.taste_rating ? <StarRating value={p.taste_rating} readOnly /> : null}
+                    </td>
                     <td>
                       <select
                         value={p.status}
@@ -370,6 +413,7 @@ export default function Plantings({ user }) {
                     <td>
                       <div className="flex gap-1">
                         <button className="btn btn-ghost btn-sm" onClick={() => setShowTaskModal(p.id)} title="Add task">📋</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => { setIssueForm(emptyIssue); setShowIssueModal(p.id) }} title="Report issue">🐛</button>
                         {p.plant_id && (
                           <button
                             className="btn btn-ghost btn-sm"
@@ -492,6 +536,13 @@ export default function Plantings({ user }) {
               </div>
             </div>
 
+            {(form.status === 'harvested' || form.harvest_quantity) && (
+              <div className="form-group">
+                <label>Taste Rating</label>
+                <StarRating value={form.taste_rating} onChange={v => setForm({ ...form, taste_rating: v })} />
+              </div>
+            )}
+
             <div className="form-group">
               <label>Notes</label>
               <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Observations, issues, successes…" />
@@ -500,6 +551,52 @@ export default function Plantings({ user }) {
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={save}>Save Planting</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report issue modal */}
+      {showIssueModal && (
+        <div className="modal-backdrop" onClick={() => setShowIssueModal(null)}>
+          <div className="modal" style={{ maxWidth: '460px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Report Issue</h2>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowIssueModal(null)}>✕</button>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Type</label>
+                <select value={issueForm.issue_type} onChange={e => setIssueForm({ ...issueForm, issue_type: e.target.value })}>
+                  <option value="pest">🐛 Pest</option>
+                  <option value="disease">🍂 Disease</option>
+                  <option value="other">⚠️ Other</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Severity</label>
+                <select value={issueForm.severity} onChange={e => setIssueForm({ ...issueForm, severity: e.target.value })}>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Title *</label>
+              <input value={issueForm.title} onChange={e => setIssueForm({ ...issueForm, title: e.target.value })} placeholder="e.g. Aphids, powdery mildew, yellowing leaves" autoFocus />
+            </div>
+            <div className="form-group">
+              <label>Description</label>
+              <textarea rows={2} value={issueForm.description} onChange={e => setIssueForm({ ...issueForm, description: e.target.value })} placeholder="What did you observe?" />
+            </div>
+            <div className="form-group">
+              <label>Treatment (optional)</label>
+              <textarea rows={2} value={issueForm.treatment} onChange={e => setIssueForm({ ...issueForm, treatment: e.target.value })} placeholder="e.g. Sprayed neem oil" />
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowIssueModal(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveIssue}>Report Issue</button>
             </div>
           </div>
         </div>

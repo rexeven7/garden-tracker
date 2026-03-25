@@ -1,6 +1,18 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { format, isToday, isPast, parseISO, addDays } from 'date-fns'
+import WeatherWidget from '../components/WeatherWidget'
+
+function StarRating({ value }) {
+  const n = parseInt(value) || 0
+  return (
+    <span className="star-rating-sm">
+      {[1,2,3,4,5].map(i => (
+        <span key={i} style={{ color: i <= n ? '#D4A853' : '#E8DDD0', fontSize: '0.8rem' }}>★</span>
+      ))}
+    </span>
+  )
+}
 
 const TASK_ICONS = { water: '💧', fertilize: '🌿', thin: '✂️', prune: '🪴', treat: '🧪', harvest: '🧺', transplant: '🌱', other: '📋' }
 const STATUS_ORDER = ['seeded', 'transplanted', 'growing', 'planned']
@@ -9,6 +21,7 @@ export default function Dashboard({ user }) {
   const [stats, setStats] = useState({ beds: 0, plantings: 0, tasks_due: 0, harvests: 0 })
   const [tasks, setTasks] = useState([])
   const [recent, setRecent] = useState([])
+  const [harvested, setHarvested] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => { loadDashboard() }, [])
@@ -17,22 +30,22 @@ export default function Dashboard({ user }) {
     const today = format(new Date(), 'yyyy-MM-dd')
     const weekOut = format(addDays(new Date(), 7), 'yyyy-MM-dd')
 
-    const [bedsRes, plantingsRes, tasksRes] = await Promise.all([
+    const [bedsRes, plantingsRes, tasksRes, harvestedRes] = await Promise.all([
       supabase.from('beds').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       supabase.from('plantings').select('id, status, custom_name, date_seeded, date_transplanted, plants(name, variety), beds(name)', { count: 'exact' }).eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
       supabase.from('tasks').select('*, plantings(custom_name, plants(name))').eq('user_id', user.id).is('completed_at', null).lte('due_date', weekOut).order('due_date'),
+      supabase.from('plantings').select('id, custom_name, harvest_quantity, taste_rating, plants(name, variety)').eq('user_id', user.id).eq('status', 'harvested').order('date_last_harvest', { ascending: false }),
     ])
-
-    const harvested = await supabase.from('plantings').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'harvested')
 
     setStats({
       beds: bedsRes.count || 0,
       plantings: plantingsRes.count || 0,
       tasks_due: tasksRes.data?.length || 0,
-      harvests: harvested.count || 0,
+      harvests: harvestedRes.data?.length || 0,
     })
     setTasks(tasksRes.data || [])
     setRecent(plantingsRes.data || [])
+    setHarvested(harvestedRes.data || [])
     setLoading(false)
   }
 
@@ -61,6 +74,8 @@ export default function Dashboard({ user }) {
         </div>
       </div>
 
+      <WeatherWidget user={user} />
+
       {/* Stats */}
       <div className="grid-4 mb-2">
         <div className="stat-card">
@@ -80,6 +95,33 @@ export default function Dashboard({ user }) {
           <div className="stat-label">Harvested</div>
         </div>
       </div>
+
+      {/* Harvest totals */}
+      {harvested.length > 0 && (
+        <div className="card mb-2">
+          <div className="card-header">
+            <h2>🧺 Season Harvest</h2>
+            <span className="pill">{harvested.length} crop{harvested.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="harvest-grid">
+            {harvested.map(p => {
+              const name = p.custom_name || p.plants?.name || '—'
+              const variety = p.plants?.variety
+              return (
+                <div key={p.id} className="harvest-item">
+                  <div className="harvest-item-name">
+                    {name}{variety ? <span className="text-muted"> — {variety}</span> : ''}
+                  </div>
+                  {p.harvest_quantity && (
+                    <div className="harvest-item-qty">{p.harvest_quantity}</div>
+                  )}
+                  {p.taste_rating && <StarRating value={p.taste_rating} />}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid-2">
         {/* Upcoming tasks */}
