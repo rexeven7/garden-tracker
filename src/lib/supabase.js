@@ -21,7 +21,7 @@ export const FAMILY_CARE_DEFAULTS = {
 }
 
 // Per-plant overrides where the family default doesn't apply well
-const PLANT_CARE_OVERRIDES = {
+export const PLANT_CARE_OVERRIDES = {
   'Potato':       { water_frequency_days: 4, fertilize_frequency_weeks: 3 },
   'Garlic':       { water_frequency_days: 7, fertilize_frequency_weeks: 4 }, // cure-style, mostly dry
   'Watermelon':   { water_frequency_days: 4, fertilize_frequency_weeks: 2 },
