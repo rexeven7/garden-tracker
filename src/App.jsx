@@ -1,0 +1,111 @@
+import { useState, useEffect } from 'react'
+import { supabase } from './lib/supabase'
+import AuthPage from './pages/AuthPage'
+import Dashboard from './pages/Dashboard'
+import Plantings from './pages/Plantings'
+import PlantLibrary from './pages/PlantLibrary'
+import Rotation from './pages/Rotation'
+import Tasks from './pages/Tasks'
+import { Beds, Seasons } from './pages/BedsSeasons'
+import './index.css'
+
+const NAV = [
+  { id: 'dashboard',  label: 'Dashboard',     icon: '🏡', section: null },
+  { id: 'plantings',  label: 'Plantings',      icon: '🌱', section: 'This Season' },
+  { id: 'tasks',      label: 'Tasks',           icon: '✅', section: null },
+  { id: 'rotation',   label: 'Crop Rotation',   icon: '🔄', section: null },
+  { id: 'library',    label: 'Plant Library',   icon: '📚', section: 'Setup' },
+  { id: 'beds',       label: 'Beds & Areas',    icon: '🪴', section: null },
+  { id: 'seasons',    label: 'Seasons',         icon: '📅', section: null },
+]
+
+export default function App() {
+  const [session, setSession] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState('dashboard')
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+      setLoading(false)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--cream)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🌱</div>
+          <p style={{ color: 'var(--muted)' }}>Loading your garden…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!session) return <AuthPage />
+
+  const user = session.user
+
+  function renderPage() {
+    switch (page) {
+      case 'dashboard': return <Dashboard user={user} />
+      case 'plantings': return <Plantings user={user} />
+      case 'tasks':     return <Tasks user={user} />
+      case 'rotation':  return <Rotation user={user} />
+      case 'library':   return <PlantLibrary user={user} />
+      case 'beds':      return <Beds user={user} />
+      case 'seasons':   return <Seasons user={user} />
+      default:          return <Dashboard user={user} />
+    }
+  }
+
+  let lastSection = null
+
+  return (
+    <div className="app-shell">
+      <header className="app-header">
+        <div className="logo">
+          <span>🌿</span>
+          Garden Tracker
+        </div>
+        <div className="flex-center gap-2">
+          <span className="text-sm" style={{ color: 'rgba(250,246,238,0.6)', fontSize: '0.8rem' }}>{user.email}</span>
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ color: 'rgba(250,246,238,0.7)', fontSize: '0.8rem' }}
+            onClick={() => supabase.auth.signOut()}
+          >
+            Sign out
+          </button>
+        </div>
+      </header>
+
+      <nav className="app-sidebar">
+        {NAV.map(item => {
+          const showSection = item.section && item.section !== lastSection
+          if (item.section) lastSection = item.section
+          return (
+            <div key={item.id}>
+              {showSection && <div className="nav-section">{item.section}</div>}
+              <div
+                className={`nav-item ${page === item.id ? 'active' : ''}`}
+                onClick={() => setPage(item.id)}
+              >
+                <span style={{ fontSize: '1rem' }}>{item.icon}</span>
+                {item.label}
+              </div>
+            </div>
+          )
+        })}
+      </nav>
+
+      <main className="main-content">
+        {renderPage()}
+      </main>
+    </div>
+  )
+}
