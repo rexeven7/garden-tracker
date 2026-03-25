@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import { supabase } from './lib/supabase'
 import AuthPage from './pages/AuthPage'
 import Dashboard from './pages/Dashboard'
@@ -117,6 +118,7 @@ export default function App() {
       <main className="main-content">
         {renderPage()}
       </main>
+      <Analytics />
     </div>
   )
 }
