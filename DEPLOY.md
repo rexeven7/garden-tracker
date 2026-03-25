@@ -61,13 +61,15 @@ git push -u origin main
 
    | Name | Value |
    |------|-------|
-   | `REACT_APP_SUPABASE_URL` | Your Supabase Project URL |
-   | `REACT_APP_SUPABASE_ANON_KEY` | Your Supabase anon public key |
+   | `VITE_SUPABASE_URL` | Your Supabase Project URL |
+   | `VITE_SUPABASE_ANON_KEY` | Your Supabase anon public key |
 
 5. Click **"Deploy"**
 
 Vercel will build and deploy the app. In ~2 minutes you'll get a live URL like:
 `https://garden-tracker-yourname.vercel.app`
+
+> **Note:** The project uses Vite, which outputs to a `dist/` folder. Vercel auto-detects this — no manual output directory setting needed.
 
 ---
 
@@ -137,7 +139,7 @@ Supabase free tier limits: 500MB database (way more than enough), 50,000 monthly
 
 ## Troubleshooting
 
-**"Missing Supabase env vars"** → Check that you added both environment variables in Vercel (Settings → Environment Variables), then redeploy.
+**"Missing Supabase env vars"** → Check that you added both `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel (Settings → Environment Variables), then redeploy.
 
 **Auth email not arriving** → Check spam folder. Supabase sends from `noreply@supabase.io`.
 

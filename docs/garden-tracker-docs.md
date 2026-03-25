@@ -1,6 +1,6 @@
 # 🌿 Garden Tracker
 
-Application documentation · Version 1.0 · 2026
+Application documentation · Version 1.1 · 2026
 
 +-----------------------------------------------------------------------+
 | **What this app does**                                                |
@@ -16,15 +16,17 @@ Application documentation · Version 1.0 · 2026
   **Frontend**            **Database & Auth**     **Hosting**
 
   React 18                Supabase (Postgres +    Vercel
-                          RLS)                    
+                          RLS)
 
-  react-router-dom        Row-level security per  Free hobby tier
-                          user                    
+  Vite 5                  Row-level security per  Free hobby tier
+                          user
 
-  date-fns                Email auth (magic link) Auto-deploy from GitHub
+  react-router-dom        Email auth (magic link) Auto-deploy from GitHub
 
-  Custom CSS (no UI       Free tier (~500MB)     $0 / month total
-  framework)                                      
+  date-fns                Free tier (~500MB)      $0 / month total
+
+  Custom CSS (no UI
+  framework)
   ----------------------- ----------------------- -----------------------
 
 ## 1. Overview
@@ -276,6 +278,10 @@ each user only sees their own data.
   ---------------------------- -------------------------------------------
   **Path**                     **Purpose**
 
+  vite.config.js               Vite build config (React plugin)
+
+  index.html                   App entry point (root level, Vite standard)
+
   src/lib/supabase.js          Supabase client + SEED_PLANTS array (her 40
                                spreadsheet plants)
 
@@ -379,11 +385,11 @@ Summary below.
 
   4        Import to Vercel    vercel.com → Add New Project → select repo
 
-  5        Add env vars        REACT_APP_SUPABASE_URL and
-                               REACT_APP_SUPABASE_ANON_KEY
+  5        Add env vars        VITE_SUPABASE_URL and
+                               VITE_SUPABASE_ANON_KEY
 
   6        Deploy              Vercel builds automatically. Live URL in ~2
-                               minutes.
+                               minutes. Output directory: dist/
   -------- ------------------- ----------------------------------------------
 
 ### 5.3 First-Run Setup Order
@@ -463,6 +469,10 @@ Not currently built. Ranked by likely usefulness:
   ------------- ------------- ------------------------------------------------
   **Version**   **Date**      **Changes**
 
+  1.1           March 2026    Migrated from Create React App to Vite 5.
+                              Renamed env vars from REACT_APP_* to VITE_*.
+                              Removed react-scripts dependency.
+
   1.0           March 2026    Initial release. All 7 pages. 40 plants
                               imported. Full rotation grid with conflict
                               detection. Supabase + Vercel deploy.
@@ -470,5 +480,5 @@ Not currently built. Ranked by likely usefulness:
 
 ------------------------------------------------------------------------
 
-Garden Tracker v1.0 · Built March 2026 · Powered by React + Supabase +
+Garden Tracker v1.1 · Built March 2026 · Powered by React + Vite + Supabase +
 Vercel
