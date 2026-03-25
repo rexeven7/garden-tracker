@@ -16,26 +16,8 @@
     "vite": "^5.0.0"
   },
   "scripts": {
-<<<<<<< HEAD
     "start": "vite",
     "build": "vite build",
     "preview": "vite preview"
-=======
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test"
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
->>>>>>> b35f105dbbd7f93ec8c1afa9c1b7f735896e1da2
   }
 }
