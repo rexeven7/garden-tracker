@@ -1524,7 +1524,7 @@ tbody tr:last-child { border-bottom: none; }
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  min-height: 180px;
+  min-height: 560px;
   padding: 2rem;
   text-align: center;
 }
@@ -1545,7 +1545,7 @@ tbody tr:last-child { border-bottom: none; }
 }
 
 .dashboard-map-canvas {
-  height: 320px;
+  height: 560px;
   position: relative;
   background: #2d3748;
 }
