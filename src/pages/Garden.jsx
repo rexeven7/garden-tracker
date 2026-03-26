@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import GardenSetup from '../components/gardenMap/GardenSetup'
 import GardenCanvas from '../components/gardenMap/GardenCanvas'
@@ -11,43 +11,28 @@ const DEFAULT_LAYERS = { plants: true, status: false, tasks: false, spacing: fal
 export default function Garden({ user, navigate }) {
   const [loading, setLoading] = useState(true)
   const [garden, setGarden] = useState(null)
-  const [beds, setBeds] = useState([])         // beds placed in this garden
-  const [allBeds, setAllBeds] = useState([])   // all user beds
+  const [beds, setBeds] = useState([])
+  const [allBeds, setAllBeds] = useState([])
   const [selectedBed, setSelectedBed] = useState(null)
   const [layers, setLayers] = useState(DEFAULT_LAYERS)
+  const [editMode, setEditMode] = useState(false)
   const [hoverItem, setHoverItem] = useState(null)
   const [hoverType, setHoverType] = useState(null)
-  const [saveStatus, setSaveStatus] = useState('')  // '' | 'saving' | 'saved'
+  const [saveStatus, setSaveStatus] = useState('')
   const saveTimer = useRef(null)
 
   useEffect(() => { load() }, [])
 
   async function load() {
     setLoading(true)
-
-    // Load garden (first one for this user)
     const { data: gardens } = await supabase
-      .from('gardens')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at')
-      .limit(1)
-
+      .from('gardens').select('*').eq('user_id', user.id).order('created_at').limit(1)
     const g = gardens?.[0] || null
     setGarden(g)
-
-    if (g) {
-      await loadBeds(g.id)
-    }
-
-    // Load all beds (for sidebar unplaced list)
+    if (g) await loadBeds(g.id)
     const { data: allBedData } = await supabase
-      .from('beds')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('name')
+      .from('beds').select('*').eq('user_id', user.id).order('name')
     setAllBeds(allBedData || [])
-
     setLoading(false)
   }
 
@@ -73,7 +58,6 @@ export default function Garden({ user, navigate }) {
     setLayers(l => ({ ...l, [key]: !l[key] }))
   }
 
-  // Debounced save
   function scheduleSave(fn) {
     setSaveStatus('saving')
     if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -85,7 +69,6 @@ export default function Garden({ user, navigate }) {
   }
 
   async function handleBedDragEnd(bedId, newX, newY) {
-    // Optimistically update local state
     setBeds(prev => prev.map(b => b.id === bedId ? { ...b, x: newX, y: newY } : b))
     scheduleSave(() => supabase.from('beds').update({ x: newX, y: newY }).eq('id', bedId))
   }
@@ -96,11 +79,9 @@ export default function Garden({ user, navigate }) {
   }
 
   async function handleAddBedToGarden(bed) {
-    // Place bed at origin if no position
-    const payload = { garden_id: garden.id, x: 0, y: 0 }
+    const payload = { garden_id: garden.id, x: 1, y: 1 }
     await supabase.from('beds').update(payload).eq('id', bed.id)
     await loadBeds(garden.id)
-    // Refresh allBeds
     const { data } = await supabase.from('beds').select('*').eq('user_id', user.id).order('name')
     setAllBeds(data || [])
   }
@@ -112,7 +93,7 @@ export default function Garden({ user, navigate }) {
     setAllBeds(data || [])
   }
 
-  async function handleBedAdded(newBed) {
+  async function handleBedAdded() {
     const { data } = await supabase.from('beds').select('*').eq('user_id', user.id).order('name')
     setAllBeds(data || [])
   }
@@ -131,9 +112,12 @@ export default function Garden({ user, navigate }) {
     setAllBeds(data || [])
   }
 
-  function handleHoverItem(item, type) {
-    setHoverItem(item)
-    setHoverType(type)
+  function toggleEditMode() {
+    setEditMode(e => !e)
+    // Clear hover card and selection when switching modes
+    setHoverItem(null)
+    setHoverType(null)
+    if (editMode) setSelectedBed(null) // leaving edit mode — deselect
   }
 
   if (loading) {
@@ -151,71 +135,75 @@ export default function Garden({ user, navigate }) {
 
   return (
     <div className="garden-page">
-      {/* Page header */}
       <div className="garden-page-header">
         <div>
           <h1 style={{ marginBottom: 0 }}>{garden.name}</h1>
           <span className="text-sm text-muted">{garden.width_ft} × {garden.height_ft} ft</span>
         </div>
-        <div className="flex gap-2 align-center">
+        <div className="flex gap-2" style={{ alignItems: 'center' }}>
           {saveStatus === 'saving' && <span className="text-sm text-muted">Saving…</span>}
           {saveStatus === 'saved' && <span className="text-sm" style={{ color: 'var(--leaf)' }}>✓ Saved</span>}
           <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => {
-              if (window.confirm('Edit garden settings?')) {
-                // Reset garden to trigger setup (could be a modal in the future)
-              }
-            }}
-            title="Garden settings"
+            className={`btn btn-sm ${editMode ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={toggleEditMode}
           >
-            ⚙️ Settings
+            {editMode ? '✓ Done Editing' : '✏️ Edit Layout'}
           </button>
         </div>
       </div>
 
-      {/* Layer controls */}
+      {editMode && (
+        <div className="edit-mode-banner">
+          Drag beds to reposition · Drag corners to resize · Click empty space to deselect
+        </div>
+      )}
+
       <LayerControls layers={layers} onToggle={toggleLayer} />
 
-      {/* Main layout: canvas + sidebar */}
       <div className="garden-layout">
-        {/* Canvas area */}
         <div className="garden-canvas-wrapper">
           <GardenCanvas
             garden={garden}
             beds={beds}
             selectedBed={selectedBed}
             layers={layers}
-            readOnly={false}
+            editMode={editMode}
             onSelectBed={bed => {
               setSelectedBed(bed)
-              if (bed) setHoverItem(null)
+              setHoverItem(null)
             }}
             onBedDragEnd={handleBedDragEnd}
             onBedResize={handleBedResize}
-            onHoverItem={handleHoverItem}
-            onHoverEnd={() => {}}
+            onHoverItem={(item, type) => {
+              // Only show hover cards in view mode
+              if (!editMode) {
+                setHoverItem(item)
+                setHoverType(type)
+              }
+            }}
+            onHoverEnd={() => {
+              if (!editMode) setHoverItem(null)
+            }}
           />
         </div>
 
-        {/* Sidebar */}
         <BedSidebar
           user={user}
           gardenId={garden.id}
           beds={beds}
           allBeds={allBeds}
           selectedBed={selectedBed}
+          editMode={editMode}
           onBedAdded={handleBedAdded}
           onBedUpdated={handleBedUpdated}
           onBedDeleted={handleBedDeleted}
-          onSelectBed={setSelectedBed}
+          onSelectBed={bed => { setSelectedBed(bed); setHoverItem(null) }}
           onAddBedToGarden={handleAddBedToGarden}
           onRemoveBedFromGarden={handleRemoveBedFromGarden}
         />
       </div>
 
-      {/* Hover card (rendered as portal-like absolute div) */}
-      {hoverItem && (
+      {!editMode && hoverItem && (
         <HoverCard
           item={hoverItem}
           type={hoverType}

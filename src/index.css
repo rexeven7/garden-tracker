@@ -1036,6 +1036,17 @@ tbody tr:last-child { border-bottom: none; }
 
 /* ── Garden Map ─────────────────────────────────────────── */
 
+/* Edit mode banner */
+.edit-mode-banner {
+  background: var(--straw);
+  color: var(--soil);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 0.3rem 1rem;
+  flex-shrink: 0;
+}
+
 /* Garden page layout */
 .garden-page {
   display: flex;
