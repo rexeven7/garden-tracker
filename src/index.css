@@ -308,6 +308,10 @@ textarea { resize: vertical; min-height: 80px; }
   .weather-forecast-day:nth-child(4),
   .weather-forecast-day:nth-child(5) { display: none; }
 
+  /* Hourly: 6 cols on mobile, hide last 3 */
+  .weather-hourly { grid-template-columns: repeat(6, 1fr); }
+  .weather-hourly-item:nth-child(n+7) { display: none; }
+
   /* Weather current layout */
   .weather-current { gap: 0.75rem; }
   .weather-emoji { font-size: 2.2rem; }
@@ -792,29 +796,25 @@ tbody tr:last-child { border-bottom: none; }
   color: white;
 }
 
-/* Hourly forecast strip — negative margins make it edge-to-edge like the daily grid */
+/* Hourly forecast strip — grid matches daily forecast width exactly */
 .weather-hourly {
-  display: flex;
-  overflow-x: auto;
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
   gap: 0.25rem;
-  margin: 0 -1.5rem;
-  padding: 0.75rem 1.5rem;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
   border-top: 1px solid rgba(255,255,255,0.12);
   border-bottom: 1px solid rgba(255,255,255,0.12);
-  scrollbar-width: none;
 }
-.weather-hourly::-webkit-scrollbar { display: none; }
 
 .weather-hourly-item {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.15rem;
-  min-width: 52px;
   padding: 0.4rem 0.3rem;
   border-radius: var(--radius-sm);
   text-align: center;
-  flex-shrink: 0;
   transition: background 0.15s;
 }
 .weather-hourly-item:hover { background: rgba(255,255,255,0.12); }
