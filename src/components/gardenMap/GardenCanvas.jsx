@@ -30,6 +30,7 @@ export default function GardenCanvas({
   selectedBed,
   layers,
   editMode,
+  compact,
   onSelectBed,
   onBedDragEnd,
   onBedResize,
@@ -216,12 +217,14 @@ export default function GardenCanvas({
       ref={containerRef}
       className={`garden-canvas-container${editMode ? ' edit-mode' : ''}`}
     >
-      <div className="canvas-zoom-indicator">
-        <button className="canvas-zoom-btn" onClick={() => zoomBy(1.25)}>+</button>
-        <span>{zoomPct}%</span>
-        <button className="canvas-zoom-btn" onClick={() => zoomBy(0.8)}>−</button>
-        <button className="canvas-zoom-btn" title="Fit garden" onClick={resetZoom}>⌂</button>
-      </div>
+      {!compact && (
+        <div className="canvas-zoom-indicator">
+          <button className="canvas-zoom-btn" onClick={() => zoomBy(1.25)}>+</button>
+          <span>{zoomPct}%</span>
+          <button className="canvas-zoom-btn" onClick={() => zoomBy(0.8)}>−</button>
+          <button className="canvas-zoom-btn" title="Fit garden" onClick={resetZoom}>⌂</button>
+        </div>
+      )}
 
       {/*
         KEY: No x, y, scaleX, scaleY props on Stage.
@@ -245,7 +248,9 @@ export default function GardenCanvas({
 
         <Layer>
           {beds.map(bed => {
-            const plantings = layers?.plants
+            // Compute plant positions when either plants or dates layer is active
+            const needsLayout = layers?.plants || layers?.dates
+            const plantings = needsLayout
               ? autoLayoutPlants(bed.plantings || [], bed.width_ft || 4, bed.height_ft || 4, baseScale)
               : []
             return (
@@ -278,7 +283,7 @@ export default function GardenCanvas({
                     onHoverEnd={handleLeave}
                   />
                 ))}
-                {layers?.plants && renderDateLabels(plantings)}
+                {renderDateLabels(plantings)}
               </BedShape>
             )
           })}

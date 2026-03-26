@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { format, isToday, isPast, parseISO, addDays } from 'date-fns'
 import WeatherWidget from '../components/WeatherWidget'
+import DashboardMapView from '../components/DashboardMapView'
 
 function StarRating({ value }) {
   const n = parseInt(value) || 0
@@ -17,12 +18,13 @@ function StarRating({ value }) {
 const TASK_ICONS = { water: '💧', fertilize: '🌿', thin: '✂️', prune: '🪴', treat: '🧪', harvest: '🧺', transplant: '🌱', other: '📋' }
 const STATUS_ORDER = ['seeded', 'transplanted', 'growing', 'planned']
 
-export default function Dashboard({ user }) {
+export default function Dashboard({ user, navigate }) {
   const [stats, setStats] = useState({ beds: 0, plantings: 0, tasks_due: 0, harvests: 0 })
   const [tasks, setTasks] = useState([])
   const [recent, setRecent] = useState([])
   const [harvested, setHarvested] = useState([])
   const [loading, setLoading] = useState(true)
+  const [dashView, setDashView] = useState('list') // 'list' | 'map'
 
   useEffect(() => { loadDashboard() }, [])
 
@@ -72,7 +74,23 @@ export default function Dashboard({ user }) {
           <h1>Good morning 🌤</h1>
           <p className="text-muted">Here's what's happening in your garden today</p>
         </div>
+        <div className="dashboard-view-toggle">
+          <button
+            className={`toggle-btn ${dashView === 'list' ? 'active' : ''}`}
+            onClick={() => setDashView('list')}
+          >
+            ☰ List
+          </button>
+          <button
+            className={`toggle-btn ${dashView === 'map' ? 'active' : ''}`}
+            onClick={() => setDashView('map')}
+          >
+            🗺️ Map
+          </button>
+        </div>
       </div>
+
+      {dashView === 'map' && <DashboardMapView user={user} navigate={navigate} />}
 
       <WeatherWidget user={user} />
 
