@@ -1088,6 +1088,14 @@ tbody tr:last-child { border-bottom: none; }
   overflow: hidden;
 }
 
+.garden-canvas-container.edit-mode {
+  cursor: grab;
+}
+
+.garden-canvas-container.edit-mode:active {
+  cursor: grabbing;
+}
+
 /* Zoom controls */
 .canvas-zoom-indicator {
   position: absolute;

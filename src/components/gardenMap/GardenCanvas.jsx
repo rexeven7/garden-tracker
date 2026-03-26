@@ -1,13 +1,13 @@
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useLayoutEffect } from 'react'
 import { Stage, Layer, Line, Text } from 'react-konva'
 import GardenBoundary from './GardenBoundary'
 import BedShape from './BedShape'
 import PlantIcon from './PlantIcon'
 
-const PADDING = 40
+const PADDING = 60
 const MIN_ZOOM = 0.15
 const MAX_ZOOM = 4
-const HOVER_DELAY_MS = 500  // how long mouse must rest before hover card appears
+const HOVER_DELAY_MS = 400
 
 function autoLayoutPlants(plantings, bedWidthFt, bedHeightFt, scale) {
   const cols = Math.max(1, Math.floor(bedWidthFt))
@@ -42,15 +42,18 @@ export default function GardenCanvas({
   const stageRef = externalStageRef || internalStageRef
   const hoverTimer = useRef(null)
 
+  // Container size — needed so BedShapes know how many px per foot
   const [size, setSize] = useState({ w: 800, h: 600 })
-  const [zoom, setZoom] = useState(1)
-  const [pan, setPan] = useState({ x: PADDING, y: PADDING })
+  // Zoom display only — does NOT drive the Stage transform
+  const [zoomPct, setZoomPct] = useState(100)
 
+  // px per foot: fit garden into container at 1x zoom
   const baseScale = Math.min(
-    (size.w - PADDING * 2) / (garden.width_ft || 1),
-    (size.h - PADDING * 2) / (garden.height_ft || 1)
+    (size.w - PADDING * 2) / Math.max(garden.width_ft, 1),
+    (size.h - PADDING * 2) / Math.max(garden.height_ft, 1)
   )
 
+  // Observe container size changes
   useEffect(() => {
     if (!containerRef.current) return
     const ro = new ResizeObserver(entries => {
@@ -61,90 +64,121 @@ export default function GardenCanvas({
     return () => ro.disconnect()
   }, [])
 
-  useEffect(() => {
-    const gw = (garden.width_ft || 1) * baseScale
-    const gh = (garden.height_ft || 1) * baseScale
-    setPan({ x: (size.w - gw) / 2, y: (size.h - gh) / 2 })
-    setZoom(1)
+  // When garden or container changes, re-center imperatively
+  useLayoutEffect(() => {
+    const stage = stageRef.current
+    if (!stage) return
+    const gw = garden.width_ft * baseScale
+    const gh = garden.height_ft * baseScale
+    stage.scale({ x: 1, y: 1 })
+    stage.position({ x: (size.w - gw) / 2, y: (size.h - gh) / 2 })
+    stage.batchDraw()
+    setZoomPct(100)
   }, [garden.id, size.w, size.h])
 
-  const handleWheel = useCallback(e => {
+  // Wheel zoom — entirely imperative, never touches React state
+  function handleWheel(e) {
     e.evt.preventDefault()
     const stage = stageRef.current
     const oldScale = stage.scaleX()
     const pointer = stage.getPointerPosition()
     const factor = e.evt.deltaY < 0 ? 1.12 : 0.9
-    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * factor))
+    const newScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, oldScale * factor))
     const mousePointTo = {
       x: (pointer.x - stage.x()) / oldScale,
       y: (pointer.y - stage.y()) / oldScale,
     }
-    setZoom(newZoom)
-    setPan({
-      x: pointer.x - mousePointTo.x * (newZoom / zoom * oldScale),
-      y: pointer.y - mousePointTo.y * (newZoom / zoom * oldScale),
+    stage.scale({ x: newScale, y: newScale })
+    stage.position({
+      x: pointer.x - mousePointTo.x * newScale,
+      y: pointer.y - mousePointTo.y * newScale,
     })
-  }, [zoom])
-
-  function clearHoverTimer() {
-    if (hoverTimer.current) {
-      clearTimeout(hoverTimer.current)
-      hoverTimer.current = null
-    }
+    stage.batchDraw()
+    setZoomPct(Math.round(newScale * 100))
   }
 
-  function scheduleHover(item, type) {
+  function zoomBy(factor) {
+    const stage = stageRef.current
+    if (!stage) return
+    const oldScale = stage.scaleX()
+    const newScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, oldScale * factor))
+    const center = { x: size.w / 2, y: size.h / 2 }
+    const mousePointTo = {
+      x: (center.x - stage.x()) / oldScale,
+      y: (center.y - stage.y()) / oldScale,
+    }
+    stage.scale({ x: newScale, y: newScale })
+    stage.position({
+      x: center.x - mousePointTo.x * newScale,
+      y: center.y - mousePointTo.y * newScale,
+    })
+    stage.batchDraw()
+    setZoomPct(Math.round(newScale * 100))
+  }
+
+  function resetZoom() {
+    const stage = stageRef.current
+    if (!stage) return
+    const gw = garden.width_ft * baseScale
+    const gh = garden.height_ft * baseScale
+    stage.scale({ x: 1, y: 1 })
+    stage.position({ x: (size.w - gw) / 2, y: (size.h - gh) / 2 })
+    stage.batchDraw()
+    setZoomPct(100)
+  }
+
+  // Hover helpers
+  function clearHoverTimer() {
+    if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = null }
+  }
+
+  function handleBedEnter(bed) {
+    if (editMode) return
     clearHoverTimer()
+    // Capture screen position now (synchronously in the event)
+    const stage = stageRef.current
+    const container = containerRef.current
+    if (!stage || !container) return
+    const pos = stage.getPointerPosition()
+    const bounds = container.getBoundingClientRect()
+    if (!pos) return
+    const screenPos = { x: bounds.left + pos.x, y: bounds.top + pos.y }
     hoverTimer.current = setTimeout(() => {
-      onHoverItem?.(item, type)
+      onHoverItem?.({ ...bed, _screenPos: screenPos }, 'bed')
     }, HOVER_DELAY_MS)
   }
 
-  function handleStageMouseDown(e) {
+  function handlePlantEnter(planting) {
+    if (editMode) return
     clearHoverTimer()
+    const stage = stageRef.current
+    const container = containerRef.current
+    if (!stage || !container) return
+    const pos = stage.getPointerPosition()
+    const bounds = container.getBoundingClientRect()
+    if (!pos) return
+    const screenPos = { x: bounds.left + pos.x, y: bounds.top + pos.y }
+    hoverTimer.current = setTimeout(() => {
+      onHoverItem?.({ ...planting, _screenPos: screenPos }, 'planting')
+    }, HOVER_DELAY_MS)
+  }
+
+  function handleLeave() {
+    clearHoverTimer()
+    onHoverEnd?.()
+  }
+
+  function handleDragStart() {
+    clearHoverTimer()
+    onHoverEnd?.()
+  }
+
+  function handleStageClick(e) {
     if (e.target === stageRef.current) {
       onSelectBed?.(null)
+      clearHoverTimer()
       onHoverEnd?.()
     }
-  }
-
-  function handleStageDragEnd(e) {
-    setPan({ x: e.target.x(), y: e.target.y() })
-  }
-
-  function getScreenPos() {
-    const stage = stageRef.current
-    const containerBounds = containerRef.current?.getBoundingClientRect()
-    const pos = stage?.getPointerPosition()
-    if (!pos || !containerBounds) return null
-    return { x: containerBounds.left + pos.x, y: containerBounds.top + pos.y }
-  }
-
-  function handleBedEnter(bed, e) {
-    if (editMode) return  // no hover cards in edit mode
-    if (!e) return
-    const screenPos = getScreenPos()
-    if (!screenPos) return
-    scheduleHover({ ...bed, _screenPos: screenPos }, 'bed')
-  }
-
-  function handleBedLeave() {
-    clearHoverTimer()
-    onHoverEnd?.()
-  }
-
-  function handleBedDragStart() {
-    // Cancel any pending hover when a drag begins
-    clearHoverTimer()
-    onHoverEnd?.()
-  }
-
-  function handlePlantEnter(planting, e) {
-    if (editMode) return
-    if (!e) return
-    const screenPos = getScreenPos()
-    if (!screenPos) return
-    scheduleHover({ ...planting, _screenPos: screenPos }, 'planting')
   }
 
   function renderGrid() {
@@ -164,54 +198,44 @@ export default function GardenCanvas({
   function renderDateLabels(plantings) {
     if (!layers?.dates) return null
     return plantings.map(p => {
-      const dates = []
-      if (p.date_seeded) dates.push(`🫘 ${fmtDate(p.date_seeded)}`)
-      if (p.date_transplanted) dates.push(`🌱 ${fmtDate(p.date_transplanted)}`)
-      if (p.date_first_harvest) dates.push(`🧺 ${fmtDate(p.date_first_harvest)}`)
-      if (dates.length === 0) return null
+      const parts = []
+      if (p.date_seeded) parts.push(`🫘 ${fmtDate(p.date_seeded)}`)
+      if (p.date_transplanted) parts.push(`🌱 ${fmtDate(p.date_transplanted)}`)
+      if (p.date_first_harvest) parts.push(`🧺 ${fmtDate(p.date_first_harvest)}`)
+      if (parts.length === 0) return null
       return (
-        <Text
-          key={p.id + '_dates'}
-          x={p._px + 12}
-          y={p._py - 8}
-          text={dates.join('  ')}
-          fontSize={7}
-          fontFamily="DM Sans, sans-serif"
-          fill="rgba(255,255,255,0.8)"
-          shadowColor="rgba(0,0,0,0.5)"
-          shadowBlur={2}
-          listening={false}
-        />
+        <Text key={p.id + '_dates'} x={p._px + 12} y={p._py - 8} text={parts.join('  ')}
+          fontSize={7} fontFamily="DM Sans, sans-serif" fill="rgba(255,255,255,0.8)"
+          shadowColor="rgba(0,0,0,0.5)" shadowBlur={2} listening={false} />
       )
     })
   }
 
-  function resetZoom() {
-    setZoom(1)
-    setPan({ x: (size.w - garden.width_ft * baseScale) / 2, y: (size.h - garden.height_ft * baseScale) / 2 })
-  }
-
   return (
-    <div ref={containerRef} className="garden-canvas-container">
+    <div
+      ref={containerRef}
+      className={`garden-canvas-container${editMode ? ' edit-mode' : ''}`}
+    >
       <div className="canvas-zoom-indicator">
-        <button className="canvas-zoom-btn" onClick={() => setZoom(z => Math.min(MAX_ZOOM, z * 1.25))}>+</button>
-        <span>{Math.round(zoom * 100)}%</span>
-        <button className="canvas-zoom-btn" onClick={() => setZoom(z => Math.max(MIN_ZOOM, z * 0.8))}>−</button>
-        <button className="canvas-zoom-btn" title="Reset zoom" onClick={resetZoom}>⌂</button>
+        <button className="canvas-zoom-btn" onClick={() => zoomBy(1.25)}>+</button>
+        <span>{zoomPct}%</span>
+        <button className="canvas-zoom-btn" onClick={() => zoomBy(0.8)}>−</button>
+        <button className="canvas-zoom-btn" title="Fit garden" onClick={resetZoom}>⌂</button>
       </div>
 
+      {/*
+        KEY: No x, y, scaleX, scaleY props on Stage.
+        Konva owns its own transform. We only drive it imperatively via stageRef.
+        This keeps Konva's hit-detection in sync with its actual rendered position.
+      */}
       <Stage
         ref={stageRef}
         width={size.w}
         height={size.h}
-        x={pan.x}
-        y={pan.y}
-        scaleX={zoom}
-        scaleY={zoom}
         draggable
-        onDragEnd={handleStageDragEnd}
         onWheel={handleWheel}
-        onMouseDown={handleStageMouseDown}
+        onClick={handleStageClick}
+        onTap={handleStageClick}
         style={{ display: 'block' }}
       >
         <Layer>
@@ -224,7 +248,6 @@ export default function GardenCanvas({
             const plantings = layers?.plants
               ? autoLayoutPlants(bed.plantings || [], bed.width_ft || 4, bed.height_ft || 4, baseScale)
               : []
-
             return (
               <BedShape
                 key={bed.id}
@@ -234,10 +257,10 @@ export default function GardenCanvas({
                 editMode={editMode}
                 onSelect={onSelectBed}
                 onDragEnd={onBedDragEnd}
-                onDragStart={handleBedDragStart}
+                onDragStart={handleDragStart}
                 onResize={onBedResize}
                 onHover={handleBedEnter}
-                onHoverEnd={handleBedLeave}
+                onHoverEnd={handleLeave}
                 layers={layers}
               >
                 {layers?.plants && plantings.map(p => (
@@ -252,7 +275,7 @@ export default function GardenCanvas({
                     showSpacing={layers.spacing}
                     scale={baseScale}
                     onHover={handlePlantEnter}
-                    onHoverEnd={handleBedLeave}
+                    onHoverEnd={handleLeave}
                   />
                 ))}
                 {layers?.plants && renderDateLabels(plantings)}
