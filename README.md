@@ -4,7 +4,7 @@ A full-featured garden management app that replaces spreadsheets with an interac
 
 Built for home gardeners who want a single place to answer: *What did I plant, where, when — and what do I need to do today?*
 
-**Live at:** [garden-tracker.vercel.app](https://garden-tracker-rexeven7s-projects.vercel.app)
+**Live at:** [rootsicle.app](https://rootsicle.app)
 
 ---
 
