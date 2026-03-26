@@ -56,12 +56,14 @@ export default function WeatherWidget({ user }) {
       url.searchParams.set('latitude', lat)
       url.searchParams.set('longitude', lon)
       url.searchParams.set('current', 'temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,wind_speed_10m,precipitation')
+      url.searchParams.set('hourly', 'temperature_2m,weather_code,precipitation_probability')
       url.searchParams.set('daily', 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum')
       url.searchParams.set('temperature_unit', unit)
       url.searchParams.set('wind_speed_unit', 'mph')
       url.searchParams.set('precipitation_unit', 'inch')
       url.searchParams.set('timezone', 'auto')
       url.searchParams.set('forecast_days', '5')
+      url.searchParams.set('forecast_hours', '36')
 
       const res = await fetch(url.toString())
       if (!res.ok) throw new Error('Weather fetch failed')
@@ -167,7 +169,21 @@ export default function WeatherWidget({ user }) {
   // ── Main widget ─────────────────────────────────────────────
   const cur     = weather.current
   const daily   = weather.daily
+  const hourly  = weather.hourly
   const curInfo = interpretWeatherCode(cur.weather_code)
+
+  // Find the slice of hourly data starting from the current hour
+  const now = new Date()
+  const currentHourStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:00`
+  const hourlyStart = hourly?.time?.findIndex(t => t >= currentHourStr) ?? 0
+  const nextHours = hourly?.time?.slice(hourlyStart, hourlyStart + 9) ?? []
+
+  function fmtHour(isoStr) {
+    const h = parseInt(isoStr.split('T')[1])
+    if (h === 0) return '12am'
+    if (h === 12) return '12pm'
+    return h < 12 ? `${h}am` : `${h - 12}pm`
+  }
 
   return (
     <div className="weather-card">
@@ -202,21 +218,37 @@ export default function WeatherWidget({ user }) {
         </div>
         <div className="weather-location-row">
           <span className="weather-location">📍 {settings.location_name}</span>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => setShowSetup(true)}
-            title="Change location"
-          >
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowSetup(true)} title="Change location">
             Change
           </button>
         </div>
       </div>
 
+      {/* Hourly forecast — next 9 hours */}
+      {nextHours.length > 0 && (
+        <div className="weather-hourly">
+          {nextHours.map((timeStr, offset) => {
+            const idx = hourlyStart + offset
+            const info = interpretWeatherCode(hourly.weather_code[idx])
+            const precip = hourly.precipitation_probability[idx]
+            const isNow = offset === 0
+            return (
+              <div key={timeStr} className={`weather-hourly-item${isNow ? ' hourly-now' : ''}`}>
+                <div className="hourly-time">{isNow ? 'Now' : fmtHour(timeStr)}</div>
+                <div className="hourly-emoji">{info.emoji}</div>
+                <div className="hourly-temp">{Math.round(hourly.temperature_2m[idx])}{degSymbol}</div>
+                {precip > 10 && <div className="hourly-precip">💧{precip}%</div>}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* 5-day forecast */}
       <div className="weather-forecast">
         {daily.time.map((dateStr, i) => {
-          const d      = new Date(dateStr + 'T12:00:00')
-          const info   = interpretWeatherCode(daily.weather_code[i])
+          const d = new Date(dateStr + 'T12:00:00')
+          const info = interpretWeatherCode(daily.weather_code[i])
           const isToday = i === 0
           return (
             <div key={dateStr} className={`weather-forecast-day ${isToday ? 'forecast-today' : ''}`}>
