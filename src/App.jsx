@@ -18,12 +18,12 @@ const ADMIN_EMAIL = 'rexeven@gmail.com'
 
 const NAV = [
   { id: 'dashboard',  label: 'Dashboard',       icon: '🏡', section: 'This Season' },
+  { id: 'garden',     label: 'Garden Map',      icon: '🗺️', section: null },
   { id: 'plantings',  label: 'Plantings',       icon: '🌱', section: null },
   { id: 'tasks',      label: 'Tasks',            icon: '✅', section: null },
   { id: 'issues',     label: 'Pest & Issues',   icon: '🐛', section: null },
   { id: 'rotation',   label: 'Crop Rotation',   icon: '🔄', section: null },
-  { id: 'garden',     label: 'Garden Map',      icon: '🗺️', section: 'Setup' },
-  { id: 'library',    label: 'Plant Library',   icon: '📚', section: null },
+  { id: 'library',    label: 'Plant Library',   icon: '📚', section: 'Setup' },
   { id: 'beds',       label: 'Beds & Areas',    icon: '🪴', section: null },
   { id: 'seasons',    label: 'Seasons',         icon: '📅', section: null },
   { id: 'admin',      label: 'Admin',           icon: '🔧', section: null, adminOnly: true },
@@ -40,7 +40,7 @@ const BOTTOM_NAV = [
 export default function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState('garden')
+  const [page, setPage] = useState('dashboard')
   const [pageParams, setPageParams] = useState({})
   const [showMore, setShowMore] = useState(false)
 
@@ -104,8 +104,7 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <div className="logo">
-          <span>🌿</span>
-          Garden Tracker
+          Root<span className="logo-accent">sicle</span>
         </div>
         <div className="flex-center gap-2">
           <span className="text-sm" style={{ color: 'rgba(250,246,238,0.6)', fontSize: '0.8rem' }}>{user.email}</span>
