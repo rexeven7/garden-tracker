@@ -16,6 +16,7 @@ const MIN_FT = 1
 export default function BedShape({
   bed,
   scale,
+  stageScale = 1,
   selected,
   editMode,
   onSelect,
@@ -70,7 +71,14 @@ export default function BedShape({
     onResize(bed.id, { width_ft: newW, height_ft: newH, x: newX, y: newY })
   }
 
-  const labelFontSize = Math.max(10, Math.min(16, w / (bed.name?.length || 1) * 1.4))
+  const nameLen = bed.name?.length || 1
+  const onScreenW = w * stageScale
+  // Target font size in screen-px: proportional to on-screen bed width, clamped to readable range
+  const fontScreen = Math.max(7, Math.min(13, (onScreenW / nameLen) * 1.2))
+  // Convert back to world-space, also cap so font never exceeds the bed rectangle
+  const labelFontSize = Math.min(fontScreen / stageScale, w * 0.8, h * 0.8)
+  // Only render the label if it would be at least 6px tall on screen
+  const showBedLabel = labelFontSize * stageScale >= 6
 
   return (
     <Group
@@ -114,23 +122,25 @@ export default function BedShape({
       })()}
 
       {/* Bed name */}
-      <Text
-        text={bed.name}
-        width={w}
-        height={h}
-        align="center"
-        verticalAlign="middle"
-        fontSize={labelFontSize}
-        fontFamily="DM Sans, sans-serif"
-        fontStyle="600"
-        fill="white"
-        shadowColor="rgba(0,0,0,0.6)"
-        shadowBlur={3}
-        shadowOffsetY={1}
-        listening={false}
-        ellipsis
-        wrap="none"
-      />
+      {showBedLabel && (
+        <Text
+          text={bed.name}
+          width={w}
+          height={h}
+          align="center"
+          verticalAlign="middle"
+          fontSize={labelFontSize}
+          fontFamily="DM Sans, sans-serif"
+          fontStyle="600"
+          fill="white"
+          shadowColor="rgba(0,0,0,0.6)"
+          shadowBlur={3}
+          shadowOffsetY={1}
+          listening={false}
+          ellipsis
+          wrap="none"
+        />
+      )}
 
       {/* Dimensions (when selected in edit mode) */}
       {selected && editMode && (

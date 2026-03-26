@@ -271,34 +271,41 @@ export default function GardenCanvas({
         </Layer>
 
         <Layer>
-          {beds.map(bed => {
-            // Compute plant positions when either plants or dates layer is active
-            const needsLayout = layers?.plants || layers?.dates
-            const plantings = needsLayout
-              ? autoLayoutPlants(bed.plantings || [], bed.width_ft || 4, bed.height_ft || 4, baseScale)
-              : []
-            return (
-              <BedShape
-                key={bed.id}
-                bed={bed}
-                scale={baseScale}
-                selected={selectedBed?.id === bed.id}
-                editMode={editMode}
-                onSelect={onSelectBed}
-                onDragEnd={onBedDragEnd}
-                onDragStart={handleDragStart}
-                onResize={onBedResize}
-                onHover={handleBedEnter}
-                onHoverEnd={handleLeave}
-                layers={layers}
-              >
-                {layers?.plants && plantings.map(p => {
-                  // Scale-invariant icon size: aim for ~18px on screen
-                  // so icons stay readable at all zoom levels but grow slightly when zoomed in
-                  const stageScale = zoomPct / 100
-                  const targetScreen = Math.max(14, Math.min(28, 18 * Math.sqrt(stageScale)))
-                  const iconSize = Math.max(8, targetScreen / stageScale)
-                  return (
+          {(() => {
+            // Compute stage scale once for all beds
+            const stageScale = zoomPct / 100
+            const targetScreen = Math.max(14, Math.min(28, 18 * Math.sqrt(stageScale)))
+            return beds.map(bed => {
+              // Compute plant positions when either plants or dates layer is active
+              const needsLayout = layers?.plants || layers?.dates
+              const plantings = needsLayout
+                ? autoLayoutPlants(bed.plantings || [], bed.width_ft || 4, bed.height_ft || 4, baseScale)
+                : []
+              // Cap icon to 55% of the bed's smaller screen dimension so icons never overflow narrow beds
+              const bedWorldW = (bed.width_ft || 4) * baseScale
+              const bedWorldH = (bed.height_ft || 4) * baseScale
+              const iconSize = Math.min(
+                Math.max(8, targetScreen / stageScale),
+                bedWorldW * 0.55,
+                bedWorldH * 0.55
+              )
+              return (
+                <BedShape
+                  key={bed.id}
+                  bed={bed}
+                  scale={baseScale}
+                  stageScale={stageScale}
+                  selected={selectedBed?.id === bed.id}
+                  editMode={editMode}
+                  onSelect={onSelectBed}
+                  onDragEnd={onBedDragEnd}
+                  onDragStart={handleDragStart}
+                  onResize={onBedResize}
+                  onHover={handleBedEnter}
+                  onHoverEnd={handleLeave}
+                  layers={layers}
+                >
+                  {layers?.plants && plantings.map(p => (
                     <PlantIcon
                       key={p.id}
                       planting={p}
@@ -312,12 +319,12 @@ export default function GardenCanvas({
                       onHover={handlePlantEnter}
                       onHoverEnd={handleLeave}
                     />
-                  )
-                })}
-                {renderDateLabels(plantings)}
-              </BedShape>
-            )
-          })}
+                  ))}
+                  {renderDateLabels(plantings)}
+                </BedShape>
+              )
+            })
+          })()}
         </Layer>
       </Stage>
     </div>
