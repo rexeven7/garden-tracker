@@ -8,6 +8,19 @@ import LayerControls from '../components/gardenMap/LayerControls'
 
 const DEFAULT_LAYERS = { plants: true, status: false, tasks: false, spacing: false, dates: false, grid: true }
 
+// Find a non-overlapping drop position for a new bed being added to the garden
+function findDropPosition(existingBeds, newBedW, newBedH, gardenW) {
+  if (existingBeds.length === 0) return { x: 1, y: 1 }
+  const rightEdge = Math.max(...existingBeds.map(b => (b.x || 0) + (b.width_ft || 4)))
+  // Try placing to the right
+  if (rightEdge + 1 + newBedW <= gardenW) {
+    return { x: rightEdge + 1, y: 1 }
+  }
+  // Wrap to next row
+  const bottomEdge = Math.max(...existingBeds.map(b => (b.y || 0) + (b.height_ft || 4)))
+  return { x: 1, y: bottomEdge + 1 }
+}
+
 export default function Garden({ user, navigate }) {
   const [loading, setLoading] = useState(true)
   const [garden, setGarden] = useState(null)
@@ -20,6 +33,7 @@ export default function Garden({ user, navigate }) {
   const [hoverType, setHoverType] = useState(null)
   const [saveStatus, setSaveStatus] = useState('')
   const saveTimer = useRef(null)
+  const clearHoverTimer = useRef(null)  // grace-period before hiding hover card
 
   useEffect(() => { load() }, [])
 
@@ -68,6 +82,30 @@ export default function Garden({ user, navigate }) {
     }, 500)
   }
 
+  // Hover card grace-period helpers
+  function showHoverItem(item, type) {
+    if (clearHoverTimer.current) {
+      clearTimeout(clearHoverTimer.current)
+      clearHoverTimer.current = null
+    }
+    setHoverItem(item)
+    setHoverType(type)
+  }
+
+  function scheduleHoverClear() {
+    clearHoverTimer.current = setTimeout(() => {
+      setHoverItem(null)
+      setHoverType(null)
+    }, 200)  // 200ms grace period — enough time to move mouse onto the card
+  }
+
+  function cancelHoverClear() {
+    if (clearHoverTimer.current) {
+      clearTimeout(clearHoverTimer.current)
+      clearHoverTimer.current = null
+    }
+  }
+
   async function handleBedDragEnd(bedId, newX, newY) {
     setBeds(prev => prev.map(b => b.id === bedId ? { ...b, x: newX, y: newY } : b))
     scheduleSave(() => supabase.from('beds').update({ x: newX, y: newY }).eq('id', bedId))
@@ -79,8 +117,8 @@ export default function Garden({ user, navigate }) {
   }
 
   async function handleAddBedToGarden(bed) {
-    const payload = { garden_id: garden.id, x: 1, y: 1 }
-    await supabase.from('beds').update(payload).eq('id', bed.id)
+    const pos = findDropPosition(beds, bed.width_ft || 4, bed.height_ft || 4, garden.width_ft)
+    await supabase.from('beds').update({ garden_id: garden.id, ...pos }).eq('id', bed.id)
     await loadBeds(garden.id)
     const { data } = await supabase.from('beds').select('*').eq('user_id', user.id).order('name')
     setAllBeds(data || [])
@@ -114,10 +152,9 @@ export default function Garden({ user, navigate }) {
 
   function toggleEditMode() {
     setEditMode(e => !e)
-    // Clear hover card and selection when switching modes
     setHoverItem(null)
     setHoverType(null)
-    if (editMode) setSelectedBed(null) // leaving edit mode — deselect
+    if (editMode) setSelectedBed(null)
   }
 
   if (loading) {
@@ -175,14 +212,10 @@ export default function Garden({ user, navigate }) {
             onBedDragEnd={handleBedDragEnd}
             onBedResize={handleBedResize}
             onHoverItem={(item, type) => {
-              // Only show hover cards in view mode
-              if (!editMode) {
-                setHoverItem(item)
-                setHoverType(type)
-              }
+              if (!editMode) showHoverItem(item, type)
             }}
             onHoverEnd={() => {
-              if (!editMode) setHoverItem(null)
+              if (!editMode) scheduleHoverClear()
             }}
           />
         </div>
@@ -209,6 +242,8 @@ export default function Garden({ user, navigate }) {
           type={hoverType}
           navigate={navigate || (() => {})}
           onClose={() => { setHoverItem(null); setHoverType(null) }}
+          onMouseEnter={cancelHoverClear}
+          onMouseLeave={scheduleHoverClear}
         />
       )}
     </div>

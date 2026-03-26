@@ -18,7 +18,7 @@ function fmt(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export default function HoverCard({ item, type, canvasRect, navigate, onClose }) {
+export default function HoverCard({ item, type, navigate, onClose, onMouseEnter, onMouseLeave }) {
   const cardRef = useRef()
 
   // Position the card near the pointer / node, staying within viewport
@@ -46,7 +46,7 @@ export default function HoverCard({ item, type, canvasRect, navigate, onClose })
   if (!item) return null
 
   return (
-    <div className="hover-card" ref={cardRef}>
+    <div className="hover-card" ref={cardRef} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <button className="hover-card-close" onClick={onClose}>✕</button>
 
       {type === 'planting' && (
