@@ -1033,3 +1033,413 @@ tbody tr:last-child { border-bottom: none; }
   background: var(--fog);
   color: var(--muted);
 }
+
+/* ── Garden Map ─────────────────────────────────────────── */
+
+/* Edit mode banner */
+.edit-mode-banner {
+  background: var(--straw);
+  color: var(--soil);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 0.3rem 1rem;
+  flex-shrink: 0;
+}
+
+/* Garden page layout */
+.garden-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+  padding: 0;
+}
+
+.garden-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--fog);
+  background: white;
+  flex-shrink: 0;
+}
+
+.garden-layout {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.garden-canvas-wrapper {
+  position: relative;
+  overflow: hidden;
+  background: #2d3748;
+}
+
+/* Canvas container fills its parent */
+.garden-canvas-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.garden-canvas-container.edit-mode {
+  cursor: grab;
+}
+
+.garden-canvas-container.edit-mode:active {
+  cursor: grabbing;
+}
+
+/* Zoom controls */
+.canvas-zoom-indicator {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(28,20,16,0.75);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.5rem;
+  color: rgba(250,246,238,0.9);
+  font-size: 0.8rem;
+  font-weight: 500;
+  backdrop-filter: blur(4px);
+}
+
+.canvas-zoom-btn {
+  background: none;
+  border: none;
+  color: rgba(250,246,238,0.8);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  transition: background 0.1s;
+}
+
+.canvas-zoom-btn:hover { background: rgba(255,255,255,0.15); }
+
+/* Layer controls */
+.layer-controls {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.5rem 1.25rem;
+  background: white;
+  border-bottom: 1px solid var(--fog);
+  overflow-x: auto;
+  flex-shrink: 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.layer-controls::-webkit-scrollbar { display: none; }
+
+.layer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 99px;
+  border: 1.5px solid var(--fog);
+  background: white;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  font-family: var(--font-body);
+}
+
+.layer-chip:hover { border-color: var(--sage); color: var(--ink); }
+
+.layer-chip.active {
+  background: var(--leaf);
+  border-color: var(--leaf);
+  color: white;
+}
+
+.layer-chip-check { margin-left: 2px; font-size: 0.7rem; }
+
+/* Bed Sidebar */
+.bed-sidebar {
+  background: white;
+  border-left: 1px solid var(--fog);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.bed-sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--fog);
+  flex-shrink: 0;
+}
+
+.bed-sidebar-tab {
+  flex: 1;
+  padding: 0.65rem;
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.bed-sidebar-tab:hover:not(:disabled) { color: var(--ink); }
+.bed-sidebar-tab.active { color: var(--leaf); border-bottom-color: var(--leaf); }
+.bed-sidebar-tab:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.bed-sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.bed-sidebar-section-header {
+  padding: 0.5rem 1rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  background: var(--parchment);
+  border-bottom: 1px solid var(--fog);
+}
+
+.bed-sidebar-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--fog);
+}
+
+.bed-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--fog);
+  transition: background 0.1s;
+}
+
+.bed-list-item:hover { background: var(--parchment); }
+.bed-list-item.selected { background: rgba(74,124,89,0.08); }
+.bed-list-item.unplaced { opacity: 0.7; }
+
+.bed-list-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.bed-list-info {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+}
+
+.bed-list-check {
+  color: var(--leaf);
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+/* Hover card */
+.hover-card {
+  position: fixed;
+  z-index: 500;
+  background: white;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--fog);
+  width: 240px;
+  padding: 0.75rem;
+  pointer-events: all;
+}
+
+.hover-card-close {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0.2rem;
+  line-height: 1;
+}
+
+.hover-card-close:hover { color: var(--red); }
+
+.hover-card-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-right: 1.2rem;
+}
+
+.hover-card-emoji { font-size: 1.4rem; line-height: 1; flex-shrink: 0; }
+
+.hover-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.65rem;
+}
+
+.hover-card-row {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.hover-card-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+/* Garden Setup overlay */
+.garden-setup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28,20,16,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.garden-setup-modal {
+  background: white;
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+
+.garden-setup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 2rem 1rem;
+  border-bottom: 1px solid var(--fog);
+}
+
+.setup-steps {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.setup-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fog);
+  transition: background 0.2s;
+}
+
+.setup-step-dot.active { background: var(--leaf); }
+.setup-step-dot.done { background: var(--sage); }
+
+.setup-step-content {
+  padding: 1.5rem 2rem;
+}
+
+.setup-step-content h3 {
+  margin-bottom: 0.25rem;
+  color: var(--ink);
+}
+
+.setup-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--fog);
+}
+
+/* Shape selector */
+.shape-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.shape-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1rem 0.5rem;
+  border: 2px solid var(--fog);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+
+.shape-option:hover { border-color: var(--sage); }
+.shape-option.selected { border-color: var(--leaf); background: rgba(74,124,89,0.06); }
+
+.shape-icon { font-size: 1.8rem; }
+
+.color-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Garden preview in setup */
+.garden-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 0;
+}
+
+/* Mobile adaptations for garden map */
+@media (max-width: 600px) {
+  .garden-page {
+    height: calc(100vh - 56px - env(safe-area-inset-top));
+  }
+
+  .garden-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+  }
+
+  /* Sidebar becomes a compact strip at bottom on mobile */
+  .bed-sidebar {
+    border-left: none;
+    border-top: 1px solid var(--fog);
+    max-height: 40vh;
+  }
+
+  .hover-card { width: 200px; font-size: 0.85rem; }
+  .shape-options { grid-template-columns: repeat(3, 1fr); }
+  .setup-step-content { padding: 1rem 1.25rem; }
+  .garden-setup-header { padding: 1rem 1.25rem 0.75rem; }
+}
