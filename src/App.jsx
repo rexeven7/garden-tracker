@@ -104,8 +104,7 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <div className="logo">
-          <span>🌿</span>
-          Garden Tracker
+          Root<span className="logo-accent">sicle</span>
         </div>
         <div className="flex-center gap-2">
           <span className="text-sm" style={{ color: 'rgba(250,246,238,0.6)', fontSize: '0.8rem' }}>{user.email}</span>

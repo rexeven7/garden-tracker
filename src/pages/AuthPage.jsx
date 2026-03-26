@@ -30,8 +30,7 @@ export default function AuthPage() {
     <div className="auth-page">
       <div className="auth-card">
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🌱</div>
-          <h1>Garden Tracker</h1>
+          <img src="/rootsicle.png" alt="Rootsicle" style={{ height: '96px', marginBottom: '1rem' }} />
           <p className="subtitle">
             {mode === 'login' ? 'Welcome back to your garden' : 'Start tracking your garden'}
           </p>
