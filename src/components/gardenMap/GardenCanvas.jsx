@@ -30,6 +30,7 @@ export default function GardenCanvas({
   selectedBed,
   layers,
   editMode,
+  compact,
   onSelectBed,
   onBedDragEnd,
   onBedResize,
@@ -68,13 +69,37 @@ export default function GardenCanvas({
   useLayoutEffect(() => {
     const stage = stageRef.current
     if (!stage) return
-    const gw = garden.width_ft * baseScale
-    const gh = garden.height_ft * baseScale
-    stage.scale({ x: 1, y: 1 })
-    stage.position({ x: (size.w - gw) / 2, y: (size.h - gh) / 2 })
-    stage.batchDraw()
-    setZoomPct(100)
-  }, [garden.id, size.w, size.h])
+
+    if (compact && beds?.length > 0) {
+      // In compact mode: fit the bounding box of placed beds (not the whole garden)
+      const xs  = beds.map(b => b.x || 0)
+      const ys  = beds.map(b => b.y || 0)
+      const x2s = beds.map(b => (b.x || 0) + (b.width_ft  || 4))
+      const y2s = beds.map(b => (b.y || 0) + (b.height_ft || 4))
+      const minX = Math.min(...xs);  const maxX = Math.max(...x2s)
+      const minY = Math.min(...ys);  const maxY = Math.max(...y2s)
+      const bedW = (maxX - minX) * baseScale
+      const bedH = (maxY - minY) * baseScale
+      const fitScale = Math.min(
+        (size.w - PADDING * 2) / Math.max(bedW, 1),
+        (size.h - PADDING * 2) / Math.max(bedH, 1),
+        4
+      )
+      const cx = ((minX + maxX) / 2) * baseScale * fitScale
+      const cy = ((minY + maxY) / 2) * baseScale * fitScale
+      stage.scale({ x: fitScale, y: fitScale })
+      stage.position({ x: size.w / 2 - cx, y: size.h / 2 - cy })
+      stage.batchDraw()
+      setZoomPct(Math.round(fitScale * 100))
+    } else {
+      const gw = garden.width_ft * baseScale
+      const gh = garden.height_ft * baseScale
+      stage.scale({ x: 1, y: 1 })
+      stage.position({ x: (size.w - gw) / 2, y: (size.h - gh) / 2 })
+      stage.batchDraw()
+      setZoomPct(100)
+    }
+  }, [garden.id, size.w, size.h, compact, beds?.length])
 
   // Wheel zoom — entirely imperative, never touches React state
   function handleWheel(e) {
@@ -216,12 +241,14 @@ export default function GardenCanvas({
       ref={containerRef}
       className={`garden-canvas-container${editMode ? ' edit-mode' : ''}`}
     >
-      <div className="canvas-zoom-indicator">
-        <button className="canvas-zoom-btn" onClick={() => zoomBy(1.25)}>+</button>
-        <span>{zoomPct}%</span>
-        <button className="canvas-zoom-btn" onClick={() => zoomBy(0.8)}>−</button>
-        <button className="canvas-zoom-btn" title="Fit garden" onClick={resetZoom}>⌂</button>
-      </div>
+      {!compact && (
+        <div className="canvas-zoom-indicator">
+          <button className="canvas-zoom-btn" onClick={() => zoomBy(1.25)}>+</button>
+          <span>{zoomPct}%</span>
+          <button className="canvas-zoom-btn" onClick={() => zoomBy(0.8)}>−</button>
+          <button className="canvas-zoom-btn" title="Fit garden" onClick={resetZoom}>⌂</button>
+        </div>
+      )}
 
       {/*
         KEY: No x, y, scaleX, scaleY props on Stage.
@@ -245,7 +272,9 @@ export default function GardenCanvas({
 
         <Layer>
           {beds.map(bed => {
-            const plantings = layers?.plants
+            // Compute plant positions when either plants or dates layer is active
+            const needsLayout = layers?.plants || layers?.dates
+            const plantings = needsLayout
               ? autoLayoutPlants(bed.plantings || [], bed.width_ft || 4, bed.height_ft || 4, baseScale)
               : []
             return (
@@ -263,22 +292,29 @@ export default function GardenCanvas({
                 onHoverEnd={handleLeave}
                 layers={layers}
               >
-                {layers?.plants && plantings.map(p => (
-                  <PlantIcon
-                    key={p.id}
-                    planting={p}
-                    x={p._px}
-                    y={p._py}
-                    iconSize={Math.max(12, Math.min(24, baseScale * 0.8))}
-                    showLabel={layers.plants && baseScale > 30}
-                    showStatus={layers.status}
-                    showSpacing={layers.spacing}
-                    scale={baseScale}
-                    onHover={handlePlantEnter}
-                    onHoverEnd={handleLeave}
-                  />
-                ))}
-                {layers?.plants && renderDateLabels(plantings)}
+                {layers?.plants && plantings.map(p => {
+                  // Scale-invariant icon size: aim for ~18px on screen
+                  // so icons stay readable at all zoom levels but grow slightly when zoomed in
+                  const stageScale = zoomPct / 100
+                  const targetScreen = Math.max(14, Math.min(28, 18 * Math.sqrt(stageScale)))
+                  const iconSize = Math.max(8, targetScreen / stageScale)
+                  return (
+                    <PlantIcon
+                      key={p.id}
+                      planting={p}
+                      x={p._px}
+                      y={p._py}
+                      iconSize={iconSize}
+                      showLabel={layers.plants && baseScale * stageScale > 25}
+                      showStatus={layers.status}
+                      showSpacing={layers.spacing}
+                      scale={baseScale}
+                      onHover={handlePlantEnter}
+                      onHoverEnd={handleLeave}
+                    />
+                  )
+                })}
+                {renderDateLabels(plantings)}
               </BedShape>
             )
           })}

@@ -48,6 +48,25 @@ function getEmoji(plant) {
   return CATEGORY_EMOJI[plant.category] || '🌱'
 }
 
+// Heuristic spacing defaults (inches) for common plants — used when spacing_inches is not set on the plant record
+const SPACING_DEFAULTS = {
+  tomato: 24, corn: 12, carrot: 3, cucumber: 12, pepper: 18,
+  eggplant: 18, squash: 36, zucchini: 24, pumpkin: 36, potato: 12,
+  strawberry: 12, watermelon: 36, lettuce: 8, kale: 12, spinach: 6,
+  broccoli: 18, cabbage: 18, pea: 4, bean: 6, garlic: 6, onion: 4,
+  sunflower: 12, lavender: 18, basil: 8, mint: 12, dill: 6, parsley: 8,
+}
+
+function getSpacingInches(plant) {
+  if (!plant) return 0
+  if (plant.spacing_inches) return Number(plant.spacing_inches)
+  const nameLower = (plant.name || '').toLowerCase()
+  for (const [key, inches] of Object.entries(SPACING_DEFAULTS)) {
+    if (nameLower.includes(key)) return inches
+  }
+  return 6 // default fallback: 6 inches
+}
+
 const STATUS_RING = {
   planned:      '#94a3b8',
   seeded:       '#60a5fa',
@@ -72,9 +91,8 @@ export default function PlantIcon({
 }) {
   const emoji = getEmoji(planting.plants)
   const statusColor = STATUS_RING[planting.status] || '#94a3b8'
-  const spacing_px = planting.plants?.spacing_inches
-    ? (planting.plants.spacing_inches / 12) * scale / 2
-    : 0
+  const spacingIn = getSpacingInches(planting.plants)
+  const spacing_px = spacingIn > 0 ? (spacingIn / 12) * scale / 2 : 0
 
   return (
     <Group
