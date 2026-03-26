@@ -10,18 +10,20 @@ import Rotation from './pages/Rotation'
 import Tasks from './pages/Tasks'
 import Admin from './pages/Admin'
 import Issues from './pages/Issues'
+import Garden from './pages/Garden'
 import { Beds, Seasons } from './pages/BedsSeasons'
 import './index.css'
 
 const ADMIN_EMAIL = 'rexeven@gmail.com'
 
 const NAV = [
-  { id: 'dashboard',  label: 'Dashboard',     icon: '🏡', section: null },
-  { id: 'plantings',  label: 'Plantings',      icon: '🌱', section: 'This Season' },
-  { id: 'tasks',      label: 'Tasks',           icon: '✅', section: null },
+  { id: 'dashboard',  label: 'Dashboard',       icon: '🏡', section: 'This Season' },
+  { id: 'plantings',  label: 'Plantings',       icon: '🌱', section: null },
+  { id: 'tasks',      label: 'Tasks',            icon: '✅', section: null },
   { id: 'issues',     label: 'Pest & Issues',   icon: '🐛', section: null },
   { id: 'rotation',   label: 'Crop Rotation',   icon: '🔄', section: null },
-  { id: 'library',    label: 'Plant Library',   icon: '📚', section: 'Setup' },
+  { id: 'garden',     label: 'Garden Map',      icon: '🗺️', section: 'Setup' },
+  { id: 'library',    label: 'Plant Library',   icon: '📚', section: null },
   { id: 'beds',       label: 'Beds & Areas',    icon: '🪴', section: null },
   { id: 'seasons',    label: 'Seasons',         icon: '📅', section: null },
   { id: 'admin',      label: 'Admin',           icon: '🔧', section: null, adminOnly: true },
@@ -29,17 +31,24 @@ const NAV = [
 
 // Bottom 4 tabs always visible on mobile
 const BOTTOM_NAV = [
-  { id: 'dashboard', label: 'Home',      icon: '🏡' },
-  { id: 'plantings', label: 'Plants',    icon: '🌱' },
-  { id: 'tasks',     label: 'Tasks',     icon: '✅' },
-  { id: 'issues',    label: 'Issues',    icon: '🐛' },
+  { id: 'garden',    label: 'Garden',   icon: '🗺️' },
+  { id: 'plantings', label: 'Plants',   icon: '🌱' },
+  { id: 'tasks',     label: 'Tasks',    icon: '✅' },
+  { id: 'issues',    label: 'Issues',   icon: '🐛' },
 ]
 
 export default function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState('dashboard')
+  const [page, setPage] = useState('garden')
+  const [pageParams, setPageParams] = useState({})
   const [showMore, setShowMore] = useState(false)
+
+  function navigate(pageId, params = {}) {
+    setPage(pageId)
+    setPageParams(params)
+    setShowMore(false)
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -75,16 +84,17 @@ export default function App() {
 
   function renderPage() {
     switch (page) {
-      case 'dashboard': return <Dashboard user={user} />
-      case 'plantings': return <Plantings user={user} />
-      case 'tasks':     return <Tasks user={user} />
+      case 'garden':    return <Garden user={user} navigate={navigate} params={pageParams} />
+      case 'dashboard': return <Dashboard user={user} navigate={navigate} params={pageParams} />
+      case 'plantings': return <Plantings user={user} params={pageParams} />
+      case 'tasks':     return <Tasks user={user} params={pageParams} />
       case 'issues':    return <Issues user={user} />
       case 'rotation':  return <Rotation user={user} />
       case 'library':   return <PlantLibrary user={user} />
       case 'beds':      return <Beds user={user} />
       case 'seasons':   return <Seasons user={user} />
       case 'admin':     return <Admin user={user} />
-      default:          return <Dashboard user={user} />
+      default:          return <Garden user={user} navigate={navigate} params={pageParams} />
     }
   }
 
@@ -118,7 +128,7 @@ export default function App() {
               {showSection && <div className="nav-section">{item.section}</div>}
               <div
                 className={`nav-item ${page === item.id ? 'active' : ''}`}
-                onClick={() => setPage(item.id)}
+                onClick={() => navigate(item.id)}
               >
                 <span style={{ fontSize: '1rem' }}>{item.icon}</span>
                 {item.label}
@@ -138,7 +148,7 @@ export default function App() {
           <button
             key={item.id}
             className={`bottom-nav-item ${page === item.id ? 'active' : ''}`}
-            onClick={() => { setPage(item.id); setShowMore(false) }}
+            onClick={() => { navigate(item.id); setShowMore(false) }}
           >
             <span className="bottom-nav-icon">{item.icon}</span>
             <span className="bottom-nav-label">{item.label}</span>
@@ -165,7 +175,7 @@ export default function App() {
                 <button
                   key={item.id}
                   className={`more-sheet-item ${page === item.id ? 'active' : ''}`}
-                  onClick={() => { setPage(item.id); setShowMore(false) }}
+                  onClick={() => { navigate(item.id); setShowMore(false) }}
                 >
                   <span>{item.icon}</span>
                   <span>{item.label}</span>

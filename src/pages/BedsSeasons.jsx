@@ -27,7 +27,7 @@ export function Beds({ user }) {
     { value: 'other', label: '📦 Other' },
   ]
 
-  const emptyForm = { name: '', description: '', size_sqft: '', location_notes: '', type: 'raised_bed' }
+  const emptyForm = { name: '', description: '', size_sqft: '', location_notes: '', type: 'raised_bed', width_ft: '', height_ft: '' }
   const [form, setForm] = useState(emptyForm)
 
   useEffect(() => { load() }, [])
@@ -39,10 +39,17 @@ export function Beds({ user }) {
   }
 
   function openNew() { setEditing(null); setForm(emptyForm); setShowModal(true) }
-  function openEdit(b) { setEditing(b.id); setForm({ name: b.name, description: b.description || '', size_sqft: b.size_sqft || '', location_notes: b.location_notes || '', type: b.type || 'raised_bed' }); setShowModal(true) }
+  function openEdit(b) { setEditing(b.id); setForm({ name: b.name, description: b.description || '', size_sqft: b.size_sqft || '', location_notes: b.location_notes || '', type: b.type || 'raised_bed', width_ft: b.width_ft || '', height_ft: b.height_ft || '' }); setShowModal(true) }
 
   async function save() {
-    const payload = { ...form, user_id: user.id, size_sqft: form.size_sqft ? parseFloat(form.size_sqft) : null, type: form.type || 'raised_bed' }
+    const payload = {
+      ...form,
+      user_id: user.id,
+      size_sqft: form.size_sqft ? parseFloat(form.size_sqft) : null,
+      type: form.type || 'raised_bed',
+      width_ft: form.width_ft ? parseFloat(form.width_ft) : null,
+      height_ft: form.height_ft ? parseFloat(form.height_ft) : null,
+    }
     if (editing) await supabase.from('beds').update(payload).eq('id', editing)
     else await supabase.from('beds').insert(payload)
     setShowModal(false)
@@ -87,7 +94,11 @@ export function Beds({ user }) {
               </div>
               {b.type && <p className="text-sm mb-1">{BED_TYPES.find(t => t.value === b.type)?.label || b.type}</p>}
               {b.description && <p className="text-sm mb-1">{b.description}</p>}
-              {b.size_sqft && <p className="text-sm text-muted">📐 {b.size_sqft} sq ft</p>}
+              {(b.width_ft && b.height_ft)
+                ? <p className="text-sm text-muted">📐 {b.width_ft} × {b.height_ft} ft</p>
+                : b.size_sqft
+                  ? <p className="text-sm text-muted">📐 {b.size_sqft} sq ft</p>
+                  : null}
               {b.location_notes && <p className="text-sm text-muted mt-1">📍 {b.location_notes}</p>}
             </div>
           ))}
@@ -119,8 +130,18 @@ export function Beds({ user }) {
             </div>
             <div className="form-row">
               <div className="form-group">
+                <label>Width (ft)</label>
+                <input type="number" value={form.width_ft} onChange={e => setForm({ ...form, width_ft: e.target.value })} placeholder="4" min="1" />
+              </div>
+              <div className="form-group">
+                <label>Depth (ft)</label>
+                <input type="number" value={form.height_ft} onChange={e => setForm({ ...form, height_ft: e.target.value })} placeholder="8" min="1" />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
                 <label>Size (sq ft)</label>
-                <input type="number" value={form.size_sqft} onChange={e => setForm({ ...form, size_sqft: e.target.value })} placeholder="32" />
+                <input type="number" value={form.size_sqft} onChange={e => setForm({ ...form, size_sqft: e.target.value })} placeholder="Auto-calculated if left blank" />
               </div>
               <div className="form-group">
                 <label>Location Notes</label>
