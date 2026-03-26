@@ -70,9 +70,9 @@ export default function Dashboard({ user, navigate }) {
   return (
     <div>
       <div className="page-header">
-        <div>
-          <h1>Good morning 🌤</h1>
-          <p className="text-muted">Here's what's happening in your garden today</p>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <h1 style={{ marginBottom: 0 }}>Good morning 🌤</h1>
+          <span className="text-muted">{format(new Date(), 'EEEE, MMMM d')}</span>
         </div>
         <div className="dashboard-view-toggle">
           <button
@@ -90,9 +90,9 @@ export default function Dashboard({ user, navigate }) {
         </div>
       </div>
 
-      {dashView === 'map' && <DashboardMapView user={user} navigate={navigate} />}
-
       <WeatherWidget user={user} />
+
+      {dashView === 'map' && <DashboardMapView user={user} navigate={navigate} />}
 
       {/* Stats */}
       <div className="grid-4 mb-2">
