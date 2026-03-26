@@ -17,13 +17,13 @@ import './index.css'
 const ADMIN_EMAIL = 'rexeven@gmail.com'
 
 const NAV = [
-  { id: 'garden',     label: 'Garden Map',      icon: '🗺️', section: null },
   { id: 'dashboard',  label: 'Dashboard',       icon: '🏡', section: 'This Season' },
   { id: 'plantings',  label: 'Plantings',       icon: '🌱', section: null },
   { id: 'tasks',      label: 'Tasks',            icon: '✅', section: null },
   { id: 'issues',     label: 'Pest & Issues',   icon: '🐛', section: null },
   { id: 'rotation',   label: 'Crop Rotation',   icon: '🔄', section: null },
-  { id: 'library',    label: 'Plant Library',   icon: '📚', section: 'Setup' },
+  { id: 'garden',     label: 'Garden Map',      icon: '🗺️', section: 'Setup' },
+  { id: 'library',    label: 'Plant Library',   icon: '📚', section: null },
   { id: 'beds',       label: 'Beds & Areas',    icon: '🪴', section: null },
   { id: 'seasons',    label: 'Seasons',         icon: '📅', section: null },
   { id: 'admin',      label: 'Admin',           icon: '🔧', section: null, adminOnly: true },

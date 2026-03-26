@@ -96,7 +96,7 @@ export default function Garden({ user, navigate }) {
     clearHoverTimer.current = setTimeout(() => {
       setHoverItem(null)
       setHoverType(null)
-    }, 200)  // 200ms grace period — enough time to move mouse onto the card
+    }, 600)  // 600ms grace period — enough time to move mouse onto the card
   }
 
   function cancelHoverClear() {
